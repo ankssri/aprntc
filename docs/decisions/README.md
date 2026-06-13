@@ -14,3 +14,4 @@ Format: short. Status ∈ Accepted / Superseded / Proposed. Number sequentially.
 | [0005](0005-not-observability.md) | aprntc is a learning product, not observability | Accepted |
 | [0006](0006-outcome-anchored-learning.md) | Outcome-anchored quality + playbook distillation (no fine-tuning in Phase 1) | Accepted |
 | [0007](0007-trajectory-schema.md) | Canonical Trajectory schema | Accepted |
+| [0008](0008-tap-build-order.md) | Tap build order: core + SDK wrapper first | Accepted |

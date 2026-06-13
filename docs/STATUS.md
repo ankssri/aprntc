@@ -59,8 +59,28 @@ test hook. (Branch `chore/project-docs-ci`.)
 
 ---
 
+## Stage 2 — AgentTap + normalizer + SDK-wrapper collector ✅ DONE (2026-06-13)
+**Scope note:** built the "richest-first" slice that's independently verifiable offline — the tap core
++ the **SDK wrapper** (full-fidelity, our-code path). The external collectors (LiteLLM proxy, OTel,
+MCP/ContextForge) need the demo agents (Stage 3) + live services to integration-test, so they plug in
+behind the same `AgentTap` core later. (ADR 0008.)
+
+**Done:**
+- `providers/base.py` — `LLMProvider` Protocol + `CompletionResult` (the model-agnostic seam; ModelArk
+  client already matches it).
+- `tap/core.py` — `AgentTap` / `EpisodeRecorder` / `TurnRecorder`: accumulate turns+steps, normalize to
+  an `Episode`, emit to a sink (e.g. `TrajectoryStore.put_episode`). **Fail-open** (sink errors never
+  reach the parent; `on_error` hook); context-manager marks `partial` on exception.
+- `tap/sdk_wrapper.py` — `wrap(provider, turn_provider=…)`: transparent LLMProvider wrapper recording
+  each completion as a full-fidelity `model_call` step (messages, reasoning, tool_calls, tokens, timing);
+  records errors then re-raises unchanged; recording failures can't break the call.
+- **Verified:** 67 tests total (+12). Incl. end-to-end tap → real store with scrub-at-ingest; fail-open
+  proven (sink throws / resolver throws → call + finish still succeed).
+
+**Next:** Stage 3 — the two demo agents (support-chat + RAG-Q&A, synthetic data), tapped via the wrapper.
+
 ## Backlog / later stages (per docs/DESIGN.md §8)
-- Stage 2: `AgentTap` + collectors (SDK wrapper → LiteLLM proxy → OTel → MCP/ContextForge).
+- Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
 - Stage 3: the two demo agents (support-chat + RAG-Q&A, synthetic data).
 - Stage 4: Evaluation/Labeling (pairwise judge, outcome-joiner, fusion).
 - Stage 5: Experience Memory (VikingDB REST adapter — remember control-plane `Action=` finding).
