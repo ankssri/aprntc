@@ -102,24 +102,52 @@ def _scored_ep(store, task, answer, reward):
     return eid
 
 
-def test_distiller_buckets_and_mines(store):
-    _scored_ep(store, "refund?", "30 days", 0.9)   # success
+def test_distiller_buckets_mines_and_exemplifies(store):
+    _scored_ep(store, "refund?", "Refunds within 30 days with a receipt.", 0.9)   # success
     _scored_ep(store, "where order?", "no idea", 0.1)  # failure
     provider = MiningProvider(
-        success_lessons=[{"situation": "refund q", "lesson": "ground in KB refund policy"}],
+        success_lessons=[{"situation": "refund q", "lesson": "ground refund answers in the KB refund_policy entry"}],
         failure_lessons=[{"situation": "order q", "lesson": "call order_status, don't guess"}],
     )
     distiller = Distiller(provider, model="ep-policy")
     res = distiller.distill(store, generation=1)
 
     assert isinstance(res, DistillationResult)
-    assert res.n_success == 1 and res.n_failure == 1
-    # success -> directive, failure -> watch_out, all attributed
-    assert "ground in KB refund policy" in res.diff.add_directives
+    # success → a directive AND a concrete exemplar; failure → a watch-out
+    assert res.n_directives == 1 and res.n_exemplars == 1 and res.n_failure == 1
+    assert res.n_success == 2  # back-compat: directives + exemplars
+    assert "ground refund answers in the KB refund_policy entry" in res.diff.add_directives
+    assert any("Refunds within 30 days" in e for e in res.diff.add_exemplars)  # the real answer, imitable
     assert "call order_status, don't guess" in res.diff.add_watch_out
-    assert res.diff.provenance  # provenance recorded
-    # lessons carry the generation
+    assert res.diff.provenance
     assert all(l.generation == 1 for l in res.lessons)
+
+
+def test_distiller_drops_generic_platitudes(store):
+    _scored_ep(store, "refund?", "Refunds within 30 days.", 0.9)
+    provider = MiningProvider(
+        success_lessons=[
+            {"situation": "x", "lesson": "Be concise"},           # generic → dropped
+            {"situation": "y", "lesson": "always be helpful"},    # generic → dropped
+            {"situation": "refund", "lesson": "quote the exact 30-day refund window from the KB"},  # kept
+        ],
+        failure_lessons=[],
+    )
+    res = Distiller(provider, model="m", make_exemplars=False).distill(store)
+    directives = res.diff.add_directives
+    assert "quote the exact 30-day refund window from the KB" in directives
+    assert not any(d.lower() in ("be concise", "always be helpful") for d in directives)
+
+
+def test_distiller_exemplars_ranked_and_capped(store):
+    for i, r in enumerate([0.95, 0.9, 0.85, 0.8, 0.75]):
+        _scored_ep(store, f"q{i}", f"answer {i}", r)
+    provider = MiningProvider(success_lessons=[], failure_lessons=[])
+    res = Distiller(provider, model="m", max_exemplars=3).distill(store)
+    assert res.n_exemplars == 3  # capped
+    # the highest-reward answers were chosen (q0=0.95, q1=0.9, q2=0.85)
+    joined = " ".join(res.diff.add_exemplars)
+    assert "answer 0" in joined and "answer 1" in joined and "answer 4" not in joined
 
 
 def test_distiller_skips_unlabeled_and_midrange(store):

@@ -5,11 +5,29 @@
 > **(A) planned v1+ features** (from the planning sessions — advance the product thesis) and
 > **(B) productionization** (make the existing system deployable/robust — engineering, not new features).
 
+## A0 — Distillation quality: DONE + a key product insight (2026-06-14)
+**Built (real, tested):** the distiller now produces (a) **concrete exemplars** — high-reward real
+answers the child imitates (far stronger than abstract rules for in-context learning), (b) **specific
+directives** mined from task + tools-used + clustered by situation, with an anti-generic filter that
+drops platitudes ("be concise"), and (c) failure-pattern warnings. Gold/held-out set expanded 5→20 so a
+win-rate CI can actually be powered (N=4 could never clear 50%). +4 distiller tests.
+
+**KEY FINDING (documented honestly, not a bug):** even with much better lessons, the DEMO child cannot
+beat the demo parent — because **Seed-2.0-pro is already optimal on these easy synthetic tasks; there is
+no headroom to improve.** RAG factual lookups: parent already correct → judge ties → ~50% ceiling.
+Support: a bare strong LLM already gives fluent answers → grounding in terse synthetic KB facts doesn't
+"win." **The apprentice can only measurably beat a parent where the parent genuinely fails/is
+inconsistent AND there's ground truth to steer toward.** Our synthetic demo lacks that gap by design.
+This is exactly why PRODUCTION headroom is real (customer agents make domain-specific mistakes,
+outdated info, edge-case failures) and why a clean synthetic demo is the wrong place to *show* a win.
+
+**Implication for the roadmap:** "make the demo child pass the gate" is the wrong goal (parent too good;
+passing would require gaming the judge or a contrived weak parent). The distiller mechanics are now
+genuinely better; demonstrating a win needs either (i) a deliberately flawed demo parent with real
+mistakes to fix, or (ii) real production traffic (A2). Deferred that choice; mechanics shipped.
+
 ## Current focus
-**→ A0: Distillation quality** (in progress). Rationale: the gate keeps rejecting children because
-distilled lessons are too generic. This is the bottleneck — without a child that actually *passes* the
-bar, every downstream feature (shadow, canary, auto-promotion) has nothing good to promote. Fully
-buildable offline. Recommended first step.
+**→ next: pick A2 (online shadow) or build a flawed-parent demo** — see A0 implication above.
 
 ## (A) Planned v1+ features (from planning sessions — canonical list)
 Ordered by recommended sequence:
