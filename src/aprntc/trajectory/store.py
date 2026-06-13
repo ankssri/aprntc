@@ -100,7 +100,11 @@ class TrajectoryStore:
         self._path = str(db_path)
         if self._path != ":memory:":
             Path(self._path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self._path)
+        # check_same_thread=False: the web API (FastAPI/Starlette) services requests on
+        # a thread pool, so the connection is touched from threads other than the one that
+        # created it. SQLite serializes access internally; we don't share cursors across
+        # threads, so this is safe here.
+        self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(_SCHEMA)

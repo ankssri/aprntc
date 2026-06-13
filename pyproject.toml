@@ -24,14 +24,17 @@ otel = [
 ]
 # UI for the promotion gate (review diff / metrics / promote / rollback).
 ui = ["streamlit>=1.40"]
+# Web dashboard backend (REST API over gate/lineage/trajectories/memory).
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
 # Everything (excludes dev/test tooling).
-all = ["aprntc[byteplus,proxy,otel,ui]"]
+all = ["aprntc[byteplus,proxy,otel,ui,web]"]
 # Dev/test only. `volcengine` is the byte-for-byte ORACLE for our hand-rolled
 # Signature-V4 signer — it is NOT a runtime dependency (we sign over REST).
 dev = [
   "pytest>=8.0",
   "httpx>=0.27",
   "volcengine",  # signing oracle (dev-only); see tests/test_signing_oracle.py
+  "fastapi>=0.110",  # web API tests use TestClient
 ]
 
 [build-system]

@@ -205,6 +205,22 @@ write-up of the built system: architecture, the closed observe→label→distill
 component design, data flow, the BytePlus integration (ModelArk + VikingDB), key decisions (link ADRs),
 and how the apprentice produces a better child. Target: `docs/DESIGN_AND_SOLUTION.md`. Do NOT skip.
 
+## Web dashboard (React + FastAPI) — ⏳ backend DONE, frontend SCAFFOLDED (2026-06-14)
+User wanted a modern, professional UI (Streamlit replaced). Decision: **React + FastAPI**, full
+dashboard (4 screens), **light/dark theme toggle**.
+- **Backend (DONE, runnable + tested):** `src/aprntc/web/app.py` — FastAPI REST API over the engine:
+  `/api/review` (gate report + diff), `/api/lineage` + promote/rollback, `/api/trajectories[/{id}]`,
+  `/api/lessons`. Injectable `AppState` (real store/lineage/memory or fakes). New `[web]` extra
+  (fastapi+uvicorn). 13 API tests (145 total). **Bug fixed:** TrajectoryStore now `check_same_thread=
+  False` (FastAPI services requests on a thread pool — would have broken the live server).
+- **Frontend (SCAFFOLDED, ready to run — needs Node):** `web/` — Vite + React + TS + Tailwind, light/dark
+  theme tokens (`src/index.css`), typed API client, app shell + sidebar nav, 4 screens (Review, Lineage,
+  Trajectories, Lessons). Linear/Vercel-style. **Node not installed on build machine** → `cd web && npm
+  install && npm run dev` (proxies /api → uvicorn). Cross-file refs verified by hand (couldn't run tsc).
+- Streamlit UI (`src/aprntc/ui/`) retained as the no-Node fallback.
+
+**Next:** user installs Node → `npm install && npm run dev` to bring the dashboard live; verify render.
+
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
 - Stage 3: the two demo agents (support-chat + RAG-Q&A, synthetic data).
