@@ -4,6 +4,7 @@ The schema (see ADR 0007) is the single shape every tap collector normalizes
 into and everything downstream (labeling, distillation, eval) consumes.
 """
 
+from aprntc.trajectory.pii import scrub_episode, scrub_text
 from aprntc.trajectory.schema import (
     SCHEMA_VERSION,
     Collector,
@@ -19,6 +20,7 @@ from aprntc.trajectory.schema import (
     StepType,
     Turn,
 )
+from aprntc.trajectory.store import TrajectoryStore
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -34,4 +36,7 @@ __all__ = [
     "Step",
     "StepType",
     "Turn",
+    "TrajectoryStore",
+    "scrub_episode",
+    "scrub_text",
 ]

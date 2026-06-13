@@ -38,17 +38,24 @@ test hook. (Branch `chore/project-docs-ci`.)
 
 ---
 
-## Stage 1 — Trajectory schema + Trajectory Store ⏳ IN PROGRESS
-**Part 1 — schema ✅ DONE (2026-06-13):**
-- Schema designed (dedicated pass), locked as **ADR 0007**, implemented in
-  `src/aprntc/trajectory/schema.py` (stdlib dataclasses: Episode/Turn/Step/ContentPart/Label/Outcome
-  + enums). Media **by reference** (no inline blobs); `schema_version`; `partial` flags;
-  per-step `source_fidelity`; `pii_status`. **19 round-trip/edge-case tests, all green (33 total).**
+## Stage 1 — Trajectory schema + Trajectory Store ✅ DONE (2026-06-13)
+**Part 1 — schema:** designed (dedicated pass), locked as **ADR 0007**, implemented in
+`src/aprntc/trajectory/schema.py` (stdlib dataclasses: Episode/Turn/Step/ContentPart/Label/Outcome
++ enums). Media **by reference**; `schema_version`; `partial` flags; per-step `source_fidelity`;
+`pii_status`. 19 round-trip/edge-case tests.
 
-**Part 2 — Trajectory Store ⏳ NEXT:**
-- System of record (SQLite to bootstrap) — PII-scrub at ingest, append-only labels/outcomes,
-  materialized fused `reward` view, `delete_by_subject` + retention TTL.
-- **Verify:** schema round-trips through the store; PII scrubbed before persistence.
+**Part 2 — Trajectory Store + PII scrubber:**
+- `src/aprntc/trajectory/pii.py` — regex PII scrubber (email/phone/card/SSN/IP/secrets), recurses into
+  tool args/results; runs at ingest; idempotent; non-mutating. (Swappable for NER later, same entry point.)
+- `src/aprntc/trajectory/store.py` — SQLite system of record: `put_episode` (scrub-at-ingest default),
+  append-only `attach_label`/`attach_outcome`, `get_episode`/`labels_for`/`outcomes_for`/`query`/`count`,
+  **`fused_reward`** (confidence-weighted, outcome>explicit>implicit>judge per ADR 0006),
+  **`delete_by_subject`** (GDPR) + **`purge_expired`** (retention TTL).
+- **Verified:** 55 tests total, all green (incl. 7 PII + 15 store). Episode body immutable; labels/
+  outcomes attach over time; scrub proven before persistence; subject-delete cascades; TTL purge works.
+
+**Live findings:** none (offline stage).
+**Next:** Stage 2 — `AgentTap` + normalizer + collectors.
 
 ---
 
