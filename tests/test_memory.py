@@ -26,6 +26,17 @@ def test_lesson_requires_content_and_valid_reward():
         Lesson(content="c", lesson_type=LessonType.DIRECTIVE, situation="s", reward=1.5)
 
 
+def test_lesson_id_is_stable_by_content():
+    # same (situation, content) -> same id (re-upsert updates, not duplicates)
+    a = Lesson(content="cite the doc", lesson_type="directive", situation="factual q", reward=0.5)
+    b = Lesson(content="cite the doc", lesson_type="directive", situation="factual q", reward=0.9)
+    assert a.lesson_id == b.lesson_id          # stable across reward changes
+    c = Lesson(content="different", lesson_type="directive", situation="factual q")
+    assert c.lesson_id != a.lesson_id
+    explicit = Lesson(content="x", lesson_type="directive", situation="s", lesson_id="les_custom")
+    assert explicit.lesson_id == "les_custom"  # explicit id respected
+
+
 def test_lesson_fields_roundtrip():
     l = Lesson(content="prefer KB grounding", lesson_type="directive",
                situation="refund question", embedding=[0.1, 0.2], reward=0.8, generation=2)

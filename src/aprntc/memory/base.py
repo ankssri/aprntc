@@ -8,6 +8,7 @@ human-readable content injected at inference.
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -29,6 +30,16 @@ def new_lesson_id() -> str:
     return f"les_{uuid.uuid4().hex}"
 
 
+def content_lesson_id(situation: str, content: str) -> str:
+    """Stable, content-derived id so re-upserting the same lesson UPDATES (not duplicates).
+
+    Keyed on (situation, content) — the semantic identity of a lesson. Reward/generation
+    can change for the same lesson without minting a new row.
+    """
+    h = hashlib.sha256(f"{situation}\x00{content}".encode("utf-8")).hexdigest()[:24]
+    return f"les_{h}"
+
+
 @dataclass
 class Lesson:
     """A distilled, retrievable lesson."""
@@ -39,7 +50,7 @@ class Lesson:
     embedding: list[float] = field(default_factory=list)  # dense vector of `situation`
     reward: float = 0.0                  # quality of the source episode(s) [0,1]
     generation: int = 0                  # lineage generation that produced it
-    lesson_id: str = field(default_factory=new_lesson_id)
+    lesson_id: str = ""   # defaults to a stable content-derived id (see __post_init__)
     pii_status: str = "scrubbed"
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -49,6 +60,9 @@ class Lesson:
             raise ValueError("Lesson.content must be non-empty")
         if not 0.0 <= float(self.reward) <= 1.0:
             raise ValueError(f"Lesson.reward must be in [0,1]; got {self.reward}")
+        if not self.lesson_id:
+            # Stable id by default → re-upserting the same lesson updates, not duplicates.
+            self.lesson_id = content_lesson_id(self.situation, self.content)
 
     def to_fields(self) -> dict[str, Any]:
         """Scalar+vector fields for a VikingDB row (excludes nothing sensitive — lessons

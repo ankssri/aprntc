@@ -118,10 +118,11 @@ search OK — "how do refunds work?" ranked the refund lesson top (0.615). Adapt
 text-vectorize shape; `service` default fixed to "vikingdb"; collection/index names default to
 ankur_aprntc_collection / ankur_aprntc_index, dim 2048. 104 tests green.
 
-**ONE CONSOLE STEP LEFT (user):** add scalar fields `reward, generation, lesson_type, pii_status` to
-index `ankur_aprntc_index` (Scalar field dropdown) to enable FILTERED retrieval. Pure semantic search
-already works; filters 400 until the fields are in the scalar index. (Our `create_index` already
-requests them via ScalarIndex[], so a programmatic re-create would set them.)
+**FULLY LIVE-VERIFIED (2026-06-13):** scalar fields added to the index (console) → FILTERED retrieval
+works: query "how do refunds work?" + min_reward=0.8 → refund directive (0.617), order-status (0.7)
+correctly excluded. Also verified: stable content-derived lesson ids (re-upsert updates, not
+duplicates — `content_lesson_id`), and `/api/vikingdb/data/delete` by ids. Stage 5 = DONE, all ops
+(auth, upsert/server-side-embed, filtered hybrid search, dedup, delete) proven on live infra. 105 tests.
 
 ### (historical) earlier diagnosis — kept for context
 ## Stage 5 — Experience Memory (VikingDB) ⏳ OFFLINE DONE, LIVE BLOCKED (2026-06-13)
