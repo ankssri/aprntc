@@ -77,7 +77,21 @@ behind the same `AgentTap` core later. (ADR 0008.)
 - **Verified:** 67 tests total (+12). Incl. end-to-end tap → real store with scrub-at-ingest; fail-open
   proven (sink throws / resolver throws → call + finish still succeed).
 
-**Next:** Stage 3 — the two demo agents (support-chat + RAG-Q&A, synthetic data), tapped via the wrapper.
+## Stage 3 — Two demo agents (synthetic data), tapped ✅ DONE (2026-06-13)
+**Done:**
+- `demos/corpus.py` — synthetic, zero-PII data: support KB + ORDERS; RAG `DOCS` corpus + frozen `GOLD`
+  Q&A set (reference answers + expected cited doc ids; the promotion-gate ruler, never trained on) +
+  tiny lexical `search_docs`.
+- `demos/agents.py` — `DemoAgent` base (tapped model→tool loop) + `SupportAgent` (kb_lookup,
+  order_status tools) + `RagAgent` (search_docs retrieval, cites doc ids). Provider-agnostic.
+- `scripts/demo_agents.py` — live runner (real ModelArk → SQLite store).
+- **Verified offline:** 73 tests (+6); agents record complete trajectories (tool_call + model_call
+  steps, reasoning, context injection); partial episode on provider error.
+- **Verified LIVE (real ModelArk):** both agents answered correctly; RAG cited the expected doc on all
+  3 gold questions; 5 episodes stored — `sdk_wrapper`, **pii=scrubbed**, real endpoint id, model_call
+  tokens + reasoning captured. Stages 0→3 compose end-to-end on live infra. ✅
+
+**Next:** Stage 4 — Evaluation/Labeling (pairwise judge ≠ policy, outcome-joiner, confidence fusion).
 
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
