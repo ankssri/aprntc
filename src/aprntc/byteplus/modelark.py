@@ -40,7 +40,9 @@ class Completion:
 class ModelArkClient:
     """Minimal Chat Completions client for ModelArk."""
 
-    def __init__(self, config: ModelArkConfig, *, timeout: float = 60.0) -> None:
+    # Deep-reasoning models (Seed/DeepSeek) can think for a while; the ModelArk docs
+    # recommend a generous timeout. Default high so judging/agents don't read-timeout.
+    def __init__(self, config: ModelArkConfig, *, timeout: float = 300.0) -> None:
         config.validate()
         self._config = config
         self._client = httpx.Client(

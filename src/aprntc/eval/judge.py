@@ -62,7 +62,11 @@ class PairwiseJudge:
             {"role": "system", "content": _RUBRIC},
             {"role": "user", "content": f"Task:\n{task}\n\nAnswer A:\n{a}\n\nAnswer B:\n{b}"},
         ]
-        result = self._provider.complete(model=self._judge_model, messages=messages)
+        # The judge scores from a rubric; it doesn't need extended chain-of-thought.
+        # Disable thinking when supported → faster, cheaper, avoids long reasoning stalls.
+        result = self._provider.complete(
+            model=self._judge_model, messages=messages, thinking="disabled"
+        )
         data = _parse_json(result.text)
 
         raw_winner = str(data.get("winner", "tie")).upper()

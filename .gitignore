@@ -35,6 +35,10 @@ aprntc.db
 logs/
 *.log
 
+# ─── Runtime artifacts (demos / UI) ─────────────────────────────────────────
+review_bundle.json
+lineage*.json
+
 # ─── OS / editor ────────────────────────────────────────────────────────────
 .DS_Store
 .idea/

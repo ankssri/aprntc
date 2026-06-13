@@ -1,9 +1,9 @@
 # aprntc — Design & Solution Document
 
-> **Status:** built through Stage 6 (the self-improvement loop is closed and live-verified).
-> Stage 7 (promotion gate + UI) is the remaining MVP slice. This document describes the system
-> **as built**, not as merely planned. Companion docs: `DESIGN.md` (concise design), `STATUS.md`
-> (build log), `decisions/` (ADRs with rationale), `CLAUDE.md` (auto-loaded orientation).
+> **Status: MVP COMPLETE** — built through Stage 7; the full observe→label→distill→evaluate→promote
+> loop, including the human-gated promotion gate, runs end-to-end on live BytePlus infra. This document
+> describes the system **as built**, not as merely planned. Companion docs: `DESIGN.md` (concise
+> design), `STATUS.md` (build log), `decisions/` (ADRs), `CLAUDE.md` (auto-loaded orientation).
 
 ---
 
@@ -136,7 +136,18 @@ behind interfaces. Permissive licenses only; no designing against any tool's pai
 
 ---
 
-## 6. Acceptance bar (Stage 7 target)
+### 4.7 Promotion gate + Lineage + UI — `promote/`, `ui/`
+- **PromotionGate** — runs parent vs child on a frozen held-out set, scores each pair with the recused
+  judge (order-balanced), and applies the **acceptance bar** (win-rate ≥ 55%, **Wilson 95% CI low >
+  50%**, loss < 10%) plus **zero-tolerance hard gates** (regression + safety, via per-case checkers).
+  MVP uses offline replay. Verified live: the gate **correctly rejected** an underperforming child.
+- **LineageRegistry** — generation DAG (G0→G1→…), `promote` appends + advances `current`, `rollback`
+  reverts to the prior generation (instant one-click revert); JSON-persisted, inspectable by the UI.
+- **Streamlit review UI** (`ui/review_app.py`) — the human-in-the-loop surface: shows the attributable
+  diff, gate metrics, hard-gate flags; **Promote** (disabled until the bar passes) / **Rollback**.
+  Reads a JSON review bundle so the UI is decoupled from live model calls.
+
+## 6. Acceptance bar (enforced by the gate)
 A distilled child must be **provably + reliably better** than the parent on a frozen held-out set never
 seen by distillation: pairwise **win-rate ≥ 55%** (95% CI lower bound > 50%, powered N), **loss-rate
 < 10%**, **zero** regression/safety failures (hard gates), within latency/cost guardrails, and
@@ -174,13 +185,16 @@ oracle.** This is why every stage is verified against live infra, not just unit 
 ---
 
 ## 9. Status & what remains
-- **Built + live-verified:** Stages 0–6 — signing gate, trajectory schema/store, tap + SDK wrapper, two
-  demo agents, evaluation/labeling, VikingDB memory, distillation + child runtime. **The
-  self-improvement loop is closed and runs end-to-end on live BytePlus infra.**
-- **Remaining (Stage 7):** promotion gate (held-out eval → win-rate/CI → human approval), lineage
-  registry (generation DAG + rollback), and the thin Streamlit review UI.
+- **MVP COMPLETE — built + live-verified:** Stages 0–7 — signing gate, trajectory schema/store, tap +
+  SDK wrapper, two demo agents, evaluation/labeling, VikingDB memory, distillation + child runtime,
+  promotion gate + lineage + Streamlit UI. **The full observe→label→distill→evaluate→promote loop runs
+  end-to-end on live BytePlus infra, with the human-gated acceptance bar protecting promotions** (a live
+  run correctly rejected an underperforming child).
 - **Deferred to v1+ (with rationale in `DESIGN.md`/STATUS):** the proxy/OTel/MCP collectors, online
   shadow/canary, learned fusion weights, fine-tuning (PEFT), auto-promotion, multi-agent fleets.
+- **Quality next steps (not MVP-blocking):** richer distillation (clustering, more lessons), larger
+  held-out/gold sets for a powered win-rate, and per-lesson efficacy pruning — to get a child that
+  reliably clears the bar.
 
 ---
 

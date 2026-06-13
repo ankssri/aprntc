@@ -177,7 +177,27 @@ parallel; finish VikingDB live verify when console provisioning is done.
   distiller mines 3 lessons → upserted to VikingDB → child G1 built (playbook diff applied) → child
   retrieves from memory at inference. The observe→label→distill→improve loop is CLOSED on live infra. ✅
 
-**Next:** Stage 7 — Promotion gate + Lineage + UI. THEN the deliverable below.
+## Stage 7 — Promotion gate + Lineage + UI ✅ DONE (2026-06-13) — MVP COMPLETE
+**Done:**
+- `promote/stats.py` — Wilson score CI for win-rate + `GateReport` (all-gates-must-hold `passed`).
+- `promote/gate.py` — `PromotionGate`: parent vs child on a held-out set, recused pairwise judge,
+  order-balanced (alternating A/B slot), acceptance bar (win-rate≥55%, CI-low>50%, loss<10%) + ZERO-
+  tolerance hard gates (regression/safety via per-case checkers). Offline replay.
+- `promote/lineage.py` — `LineageRegistry`: generation DAG (G0→G1→…), promote appends + advances
+  `current`, rollback reverts to parent gen; JSON-persisted.
+- `ui/review_app.py` — Streamlit human gate: shows diff + metrics + hard-gate flags, Promote (disabled
+  until bar passes) / Rollback; reads a JSON review bundle (decoupled from live calls).
+- 15 new tests (132 total).
+- **Fix:** ModelArk client default timeout 60s→300s; judge calls now `thinking="disabled"` (judge scores
+  from a rubric, doesn't need CoT) — fixed a judge read-timeout on the deep-reasoning DeepSeek model.
+- **LIVE END-TO-END (`scripts/demo_promotion.py`):** parent→distill→child(playbook+memory)→GATE→lineage.
+  Gate correctly **REJECTED** an underperforming child (win 25%, CI [5%,70%]) and kept parent at G0 —
+  the safety gate working as designed. Review bundle written for the UI. ✅
+
+**THE MVP IS COMPLETE.** The full observe→label→distill→evaluate→promote loop runs end-to-end on live
+BytePlus infra, with the human-gated acceptance bar protecting against bad promotions.
+
+### Next: the deliverable below (design doc) — UPDATE it to reflect Stage 7 complete.
 
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
