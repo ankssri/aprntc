@@ -1,0 +1,51 @@
+[project]
+name = "aprntc"
+version = "0.0.1"
+description = "Apprentice — a child agent that shadows a live parent agent, distills lessons, and is promoted to a measurably better successor (codename Shadow)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "aprntc" }]
+keywords = ["llm", "agents", "self-improving", "champion-challenger", "rag", "byteplus"]
+
+# Core stays DEPENDENCY-LIGHT on purpose (stdlib only). Heavy deps live in
+# optional extras so a user installs only what their collector needs.
+dependencies = []
+
+[project.optional-dependencies]
+# BytePlus adapters: ModelArk (LLM) + VikingDB (memory) over REST.
+byteplus = ["httpx>=0.27"]
+# Egress-proxy collector (wraps self-hosted LiteLLM via a CustomLogger plugin).
+proxy = ["litellm>=1.0"]
+# OTel ingester (telemetry boundary) — also the MCP path (gateway exports OTel).
+otel = [
+  "opentelemetry-sdk>=1.27",
+  "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
+# UI for the promotion gate (review diff / metrics / promote / rollback).
+ui = ["streamlit>=1.40"]
+# Everything (excludes dev/test tooling).
+all = ["aprntc[byteplus,proxy,otel,ui]"]
+# Dev/test only. `volcengine` is the byte-for-byte ORACLE for our hand-rolled
+# Signature-V4 signer — it is NOT a runtime dependency (we sign over REST).
+dev = [
+  "pytest>=8.0",
+  "httpx>=0.27",
+  "volcengine",  # signing oracle (dev-only); see tests/test_signing_oracle.py
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["aprntc*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "oracle: validates our signer byte-for-byte against the volcengine SDK (needs `volcengine` installed)",
+  "live: hits real BytePlus endpoints (needs real keys in .env)",
+]
