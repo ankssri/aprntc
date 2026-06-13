@@ -227,8 +227,13 @@ directives with lesson-id provenance, Promote locked / Roll back active. **Both 
 verified** via the toggle. Routing works (Trajectories empty-state renders cleanly). Zero console errors.
 The dashboard is real and working.
 
-**Next:** (optional) wire a persistent TrajectoryStore + VikingDB memory into the API module-level
-`app` so Trajectories/Lessons screens show live data; merge feat/web-dashboard.
+**Persistent data wired (2026-06-14):** `AppState.from_env()` wires a persistent SQLite TrajectoryStore
++ VikingDB memory into the module-level `app` (degrades gracefully if creds absent). `scripts/
+seed_dashboard.py` seeds 8 demo episodes + 3 lessons. **Verified live:** Trajectories screen renders all
+8 persisted episodes (titles, ids, collector, step counts); Lessons screen returns live VikingDB
+semantic search ("refund" → refund lesson at 0.62). 146 tests. Dashboard fully data-backed.
+
+**MERGED to main (2026-06-14):** the web dashboard (FastAPI + React, light/dark, 4 screens, live data).
 
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.

@@ -45,6 +45,63 @@ class AppState:
             return {}
         return json.loads(p.read_text(encoding="utf-8"))
 
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        db_path: str = "aprntc.db",
+        lineage_path: str = "lineage.json",
+        bundle_path: str = "review_bundle.json",
+        load_dotenv: bool = True,
+    ) -> "AppState":
+        """Wire real persistent backends (SQLite store + VikingDB memory) from config.
+
+        Degrades gracefully: a missing DB file still gives an (empty) store; if VikingDB
+        config/creds are absent or httpx isn't installed, ``memory_search`` stays ``None``
+        and the lessons screen shows its "not connected" state.
+        """
+        store = TrajectoryStore(db_path)
+        memory_search = _build_memory_search(load_dotenv=load_dotenv)
+        return cls(
+            lineage_path=lineage_path,
+            bundle_path=bundle_path,
+            store=store,
+            memory_search=memory_search,
+        )
+
+
+def _build_memory_search(*, load_dotenv: bool = True) -> Any | None:
+    """Return a ``(query, k) -> list[dict]`` retriever backed by VikingDB, or None."""
+    try:
+        from aprntc.config import Settings
+        from aprntc.memory.vikingdb import VikingDBMemoryStore
+
+        settings = Settings.from_env(dotenv=".env" if load_dotenv else None)
+        settings.vikingdb.validate()  # raises if creds missing
+        mem = VikingDBMemoryStore(
+            settings.vikingdb,
+            collection="ankur_aprntc_collection",
+            index="ankur_aprntc_index",
+            dim=2048,
+        )
+    except Exception:
+        return None
+
+    def search(query: str, k: int) -> list[dict[str, Any]]:
+        results = mem.retrieve(query=query or "lesson", k=k, min_reward=0.0)
+        return [
+            {
+                "lesson_id": r.lesson.lesson_id,
+                "content": r.lesson.content,
+                "lesson_type": r.lesson.lesson_type.value,
+                "reward": r.lesson.reward,
+                "score": r.score,
+            }
+            for r in results
+        ]
+
+    return search
+
 
 def create_app(state: AppState | None = None) -> FastAPI:
     state = state or AppState()
@@ -166,5 +223,6 @@ def _episode_summary(ep: Any, store: TrajectoryStore) -> dict[str, Any]:
     }
 
 
-# Module-level app for `uvicorn aprntc.web.app:app` (real state from env/cwd).
-app = create_app()
+# Module-level app for `uvicorn aprntc.web.app:app` — wires the real persistent
+# SQLite store + VikingDB memory from env/cwd (degrades gracefully if absent).
+app = create_app(AppState.from_env())

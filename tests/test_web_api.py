@@ -159,3 +159,25 @@ def test_lessons_memory_error_is_surfaced_not_500(tmp_path):
     c = _client(tmp_path, memory_search=boom)
     body = c.get("/api/lessons", params={"q": "x"}).json()
     assert body["available"] is True and "vikingdb down" in body["error"]
+
+
+# ─── from_env factory (persistent backends, graceful degradation) ───────────
+
+def test_from_env_wires_persistent_store(tmp_path, monkeypatch):
+    from aprntc.web.app import AppState
+    # no VikingDB creds in env, and skip .env loading → memory_search stays None,
+    # but a real persistent store is still created.
+    for var in ("VIKINGDB_AK", "VIKINGDB_SK"):
+        monkeypatch.delenv(var, raising=False)
+    state = AppState.from_env(
+        db_path=str(tmp_path / "aprntc.db"),
+        lineage_path=str(tmp_path / "lineage.json"),
+        bundle_path=str(tmp_path / "bundle.json"),
+        load_dotenv=False,
+    )
+    assert state.store is not None              # real persistent store wired
+    assert state.memory_search is None          # degraded cleanly (no creds)
+    # the wired app answers over the store
+    c = TestClient(create_app(state))
+    assert c.get("/api/trajectories").json()["count"] == 0
+    assert c.get("/api/lessons", params={"q": "x"}).json()["available"] is False
