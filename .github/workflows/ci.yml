@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          # Editable install + dev extras (pytest, httpx, volcengine signing oracle).
+          pip install -e '.[dev]'
+
+      - name: Run tests (incl. signing oracle)
+        run: |
+          # The oracle tests run because volcengine is in [dev]; live tests are not
+          # present in CI (no secrets) — only deterministic unit + oracle tests run.
+          python -m pytest -v

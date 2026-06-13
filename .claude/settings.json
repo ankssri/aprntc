@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && if [ -x .venv/bin/python ] && [ -d tests ]; then .venv/bin/python -m pytest -q 2>&1 | tail -20 || echo '⚠️  TESTS FAILING — a change has broken the suite. Fix before continuing.'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
