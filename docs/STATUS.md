@@ -105,6 +105,33 @@ behind the same `AgentTap` core later. (ADR 0008.)
 
 **Next:** Stage 5 — Experience Memory (VikingDB REST adapter; control plane uses `Action=` params).
 
+## Stage 5 — Experience Memory (VikingDB) ⏳ OFFLINE DONE, LIVE BLOCKED (2026-06-13)
+**Done (offline, 104 tests green):**
+- `memory/base.py` — `MemoryStore` Protocol + `Lesson`/`LessonType`/`RetrievedLesson`.
+- `memory/mmr.py` — cosine + MMR diversification (pure).
+- `memory/vikingdb.py` — REST adapter: control-plane `Action=` calls (CreateVikingdbCollection/Index),
+  data-plane fixed paths (upsert/search/vector), `dense_weight` hybrid + recursive filter DSL,
+  `pii_status=scrubbed` always enforced, 100-row upsert batching, MMR over candidates. **HTTP transport
+  injectable** → request construction + parsing tested against the REAL adapter offline.
+- 14 new tests (104 total). Signing still byte-for-byte == SDK oracle.
+
+**LIVE BLOCKER — VikingDB data-plane auth (needs user/account action):**
+- Control plane ACCEPTED our signature (returned business error `InvalidAction` code 100008 with
+  authenticated ResponseMetadata) → signing + creds valid there, but **Action/Version string wrong**
+  for this region (confirm exact V2 Action names + Version from console/docs).
+- Data plane REJECTED the SAME signer: `403 AccessDenied "check signature failed"` on BOTH candidate
+  hosts (`api-vikingdb.vikingdb.ap-southeast-1.bytepluses.com` and `api-vikingdb.mlp.ap-mya.byteplus.com`).
+  Our signer is byte-for-byte == volcengine SDK (oracle), and the control plane accepts it → NOT a code
+  bug. Likely: (1) data plane = a separately-provisioned VikingDB *instance* needing console
+  setup/instance-specific credential; (2) credential type mismatch (VIKINGDB_AK is 47ch prefix `AKAP`,
+  SK 59ch — may be instance-scoped); (3) a required header/param specific to the data gateway.
+- NOTE: Stage-0 only ever tested the CONTROL host (got "missing Action"), never the data host — so no
+  contradiction; this is the first real data-host auth test.
+- `scripts/demo_memory.py` written (creates collection+index, upserts, hybrid search) — re-run once the
+  data-plane credential/provisioning is sorted.
+
+**Next:** resolve data-plane auth (user), then re-run demo_memory.py; then Stage 6.
+
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
 - Stage 3: the two demo agents (support-chat + RAG-Q&A, synthetic data).
