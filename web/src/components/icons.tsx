@@ -24,3 +24,6 @@ export const IconUndo = (p: P) => (<S {...p}><path d="M9 14L4 9l5-5" /><path d="
 export const IconArrow = (p: P) => (<S {...p}><path d="M5 12h14M13 6l6 6-6 6" /></S>);
 export const IconSearch = (p: P) => (<S {...p}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></S>);
 export const IconDot = (p: P) => (<S {...p}><circle cx="12" cy="12" r="3" fill="currentColor" /></S>);
+export const IconPlay = (p: P) => (<S {...p}><path d="M6 4l14 8-14 8V4z" /></S>);
+export const IconSparkle = (p: P) => (<S {...p}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z" /></S>);
+export const IconBolt = (p: P) => (<S {...p}><path d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" /></S>);

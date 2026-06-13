@@ -235,6 +235,14 @@ semantic search ("refund" → refund lesson at 0.62). 146 tests. Dashboard fully
 
 **MERGED to main (2026-06-14):** the web dashboard (FastAPI + React, light/dark, 4 screens, live data).
 
+**"Try an agent" screen added (2026-06-14):** 5th dashboard screen — pick support/RAG agent, type or
+click an example question → runs LIVE on ModelArk, shows answer + reward (outcome-scored) + tool steps
++ reasoning, captures the trajectory to the store. Backend: `/api/agents` + `/api/agents/run`,
+`AppState.agent_run` wired via `_build_agent_run` (from_env). 5 new tests (151 total). Verified live in
+browser: ran "What is your refund policy?" → "Refunds…within 30 days", reward 100%, kb_lookup step
+captured. NOTE: these demo agents are the PARENT (G0); answers scored by outcome anchors (support=
+grounded+answered; rag=citation/retrieval/reference vs gold). Data in `src/aprntc/demos/corpus.py`.
+
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
 - Stage 3: the two demo agents (support-chat + RAG-Q&A, synthetic data).

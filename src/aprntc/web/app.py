@@ -35,6 +35,8 @@ class AppState:
     store: TrajectoryStore | None = None
     # optional: a memory retriever (callable(query, k) -> list[dict]) for the lessons screen
     memory_search: Any | None = None
+    # optional: a runner (agent_id, task) -> dict, for the "Try an agent" screen
+    agent_run: Any | None = None
 
     def lineage(self) -> LineageRegistry:
         return LineageRegistry(self.lineage_path)
@@ -62,11 +64,13 @@ class AppState:
         """
         store = TrajectoryStore(db_path)
         memory_search = _build_memory_search(load_dotenv=load_dotenv)
+        agent_run = _build_agent_run(store, load_dotenv=load_dotenv)
         return cls(
             lineage_path=lineage_path,
             bundle_path=bundle_path,
             store=store,
             memory_search=memory_search,
+            agent_run=agent_run,
         )
 
 
@@ -101,6 +105,69 @@ def _build_memory_search(*, load_dotenv: bool = True) -> Any | None:
         ]
 
     return search
+
+
+def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any | None:
+    """Return an ``(agent_id, task) -> dict`` runner backed by live ModelArk, or None.
+
+    Runs the chosen demo agent on the task, captures the trajectory into the shared
+    store (so it appears on the Trajectories screen), scores it with the matching
+    outcome scorer, and returns the answer + the captured steps + the reward.
+    """
+    try:
+        from aprntc.byteplus.modelark import ModelArkClient
+        from aprntc.config import Settings
+
+        settings = Settings.from_env(dotenv=".env" if load_dotenv else None)
+        settings.modelark.validate()  # raises if keys missing
+        client = ModelArkClient(settings.modelark)
+        model = settings.modelark.policy_model
+    except Exception:
+        return None
+
+    def run(agent_id: str, task: str) -> dict[str, Any]:
+        from aprntc.demos.agents import RagAgent, SupportAgent
+        from aprntc.demos.corpus import GOLD
+        from aprntc.eval.outcomes import rag_outcome, support_outcome
+        from aprntc.tap import AgentTap
+        from aprntc.trajectory import Collector
+
+        tap = AgentTap(store.put_episode, collector=Collector.SDK_WRAPPER)
+        if agent_id == "support":
+            agent = SupportAgent(client, tap, model=model)
+            res = agent.run(task, generation_id="try")
+            ep = store.get_episode(res.episode_id)
+            label = support_outcome(ep)
+        else:
+            agent = RagAgent(client, tap, model=model)
+            res = agent.run(task, generation_id="try")
+            ep = store.get_episode(res.episode_id)
+            # score against a gold item if the task matches one, else groundedness-only
+            gold = next((g for g in GOLD if g.question.lower() == task.lower()), None)
+            label = rag_outcome(ep, gold) if gold else support_outcome(ep)
+        store.attach_label(res.episode_id, label)
+
+        steps = [
+            {
+                "type": s.type.value,
+                "tool_name": s.tool_name,
+                "tool_args": s.tool_args,
+                "duration_ms": round(s.duration_ms, 1) if s.duration_ms else None,
+            }
+            for turn in ep.turns
+            for s in turn.steps
+        ]
+        return {
+            "answer": res.answer,
+            "episode_id": res.episode_id,
+            "agent_id": agent_id,
+            "reward": label.score,
+            "reward_rationale": label.rationale,
+            "reasoning": next((t.reasoning_content for t in ep.turns if t.reasoning_content), None),
+            "steps": steps,
+        }
+
+    return run
 
 
 def create_app(state: AppState | None = None) -> FastAPI:
@@ -203,6 +270,51 @@ def create_app(state: AppState | None = None) -> FastAPI:
         except Exception as e:  # memory is best-effort; surface the error, don't 500
             return {"lessons": [], "query": q, "available": True, "error": str(e)}
         return {"lessons": results, "query": q, "available": True}
+
+    # -- try an agent ---------------------------------------------------
+    @app.get("/api/agents")
+    def list_agents() -> dict[str, Any]:
+        """Available demo agents + a few example prompts for the UI."""
+        return {
+            "available": state.agent_run is not None,
+            "agents": [
+                {
+                    "id": "support",
+                    "name": "Support chat",
+                    "description": "Customer-support agent. Tools: KB lookup, order status.",
+                    "examples": [
+                        "What is your refund policy?",
+                        "Where is order A1001?",
+                        "How do I cancel my order?",
+                    ],
+                },
+                {
+                    "id": "rag",
+                    "name": "RAG-Q&A",
+                    "description": "Answers from a small doc corpus (Sun, Earth, Mars, Jupiter) with citations.",
+                    "examples": [
+                        "How old is the Sun?",
+                        "Which planet is the Red Planet?",
+                        "What is the largest planet?",
+                    ],
+                },
+            ],
+        }
+
+    @app.post("/api/agents/run")
+    def run_agent(body: dict[str, Any]) -> dict[str, Any]:
+        agent_id = body.get("agent_id")
+        task = (body.get("task") or "").strip()
+        if agent_id not in ("support", "rag"):
+            raise HTTPException(status_code=400, detail="agent_id must be 'support' or 'rag'")
+        if not task:
+            raise HTTPException(status_code=400, detail="task is required")
+        if state.agent_run is None:
+            raise HTTPException(status_code=503, detail="agent runtime not configured (needs ModelArk keys)")
+        try:
+            return state.agent_run(agent_id, task)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"agent run failed: {e}")
 
     return app
 

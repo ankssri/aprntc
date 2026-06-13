@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useTheme } from "./lib/theme";
 import {
+  IconBolt,
   IconBook,
   IconBranch,
   IconGate,
@@ -12,8 +13,10 @@ import ReviewScreen from "./screens/Review";
 import LineageScreen from "./screens/Lineage";
 import TrajectoriesScreen from "./screens/Trajectories";
 import LessonsScreen from "./screens/Lessons";
+import TryAgentScreen from "./screens/TryAgent";
 
 const NAV = [
+  { to: "/try", label: "Try an agent", icon: IconBolt },
   { to: "/review", label: "Promotion review", icon: IconGate },
   { to: "/lineage", label: "Lineage", icon: IconBranch },
   { to: "/trajectories", label: "Trajectories", icon: IconTrace },
@@ -71,7 +74,8 @@ export default function App() {
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-8 py-8">
           <Routes>
-            <Route path="/" element={<Navigate to="/review" replace />} />
+            <Route path="/" element={<Navigate to="/try" replace />} />
+            <Route path="/try" element={<TryAgentScreen />} />
             <Route path="/review" element={<ReviewScreen />} />
             <Route path="/lineage" element={<LineageScreen />} />
             <Route path="/trajectories" element={<TrajectoriesScreen />} />

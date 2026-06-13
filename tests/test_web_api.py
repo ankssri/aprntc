@@ -25,7 +25,7 @@ def store():
     s.close()
 
 
-def _client(tmp_path, store=None, memory_search=None, bundle=None):
+def _client(tmp_path, store=None, memory_search=None, bundle=None, agent_run=None):
     if bundle is not None:
         (tmp_path / "bundle.json").write_text(json.dumps(bundle))
     state = AppState(
@@ -33,6 +33,7 @@ def _client(tmp_path, store=None, memory_search=None, bundle=None):
         bundle_path=str(tmp_path / "bundle.json"),
         store=store,
         memory_search=memory_search,
+        agent_run=agent_run,
     )
     return TestClient(create_app(state))
 
@@ -159,6 +160,42 @@ def test_lessons_memory_error_is_surfaced_not_500(tmp_path):
     c = _client(tmp_path, memory_search=boom)
     body = c.get("/api/lessons", params={"q": "x"}).json()
     assert body["available"] is True and "vikingdb down" in body["error"]
+
+
+# ─── try an agent ───────────────────────────────────────────────────────────
+
+def test_list_agents(tmp_path):
+    body = _client(tmp_path, agent_run=lambda a, t: {}).get("/api/agents").json()
+    assert body["available"] is True
+    ids = {a["id"] for a in body["agents"]}
+    assert ids == {"support", "rag"}
+    assert all(a["examples"] for a in body["agents"])
+
+
+def test_list_agents_unavailable_without_runtime(tmp_path):
+    assert _client(tmp_path).get("/api/agents").json()["available"] is False
+
+
+def test_run_agent_invokes_runner(tmp_path):
+    seen = {}
+    def runner(agent_id, task):
+        seen["call"] = (agent_id, task)
+        return {"answer": "ok", "episode_id": "ep_1", "reward": 1.0, "steps": []}
+    c = _client(tmp_path, agent_run=runner)
+    r = c.post("/api/agents/run", json={"agent_id": "support", "task": "refund?"})
+    assert r.status_code == 200 and r.json()["answer"] == "ok"
+    assert seen["call"] == ("support", "refund?")
+
+
+def test_run_agent_validation(tmp_path):
+    c = _client(tmp_path, agent_run=lambda a, t: {})
+    assert c.post("/api/agents/run", json={"agent_id": "bad", "task": "x"}).status_code == 400
+    assert c.post("/api/agents/run", json={"agent_id": "support", "task": "  "}).status_code == 400
+
+
+def test_run_agent_503_without_runtime(tmp_path):
+    r = _client(tmp_path).post("/api/agents/run", json={"agent_id": "support", "task": "hi"})
+    assert r.status_code == 503
 
 
 # ─── from_env factory (persistent backends, graceful degradation) ───────────

@@ -95,4 +95,31 @@ export const api = {
     get<{ lessons: Lesson[]; available: boolean; error?: string }>(
       `/api/lessons?q=${encodeURIComponent(q)}&k=${k}`
     ),
+  agents: () => get<{ available: boolean; agents: AgentInfo[] }>("/api/agents"),
+  runAgent: (agent_id: string, task: string) =>
+    post<AgentRunResult>("/api/agents/run", { agent_id, task }),
+};
+
+export type AgentInfo = {
+  id: string;
+  name: string;
+  description: string;
+  examples: string[];
+};
+
+export type AgentStep = {
+  type: string;
+  tool_name: string | null;
+  tool_args: unknown;
+  duration_ms: number | null;
+};
+
+export type AgentRunResult = {
+  answer: string;
+  episode_id: string;
+  agent_id: string;
+  reward: number;
+  reward_rationale: string | null;
+  reasoning: string | null;
+  steps: AgentStep[];
 };
