@@ -52,9 +52,9 @@ class VikingDBMemoryStore(MemoryStore):
         self,
         config: VikingDBConfig,
         *,
-        collection: str = "aprntc_lessons",
-        index: str = "aprntc_lessons_idx",
-        dim: int = 1024,
+        collection: str = "ankur_aprntc_collection",
+        index: str = "ankur_aprntc_index",
+        dim: int = 2048,
         dense_weight: float = 0.5,
         transport: Transport | None = None,
     ) -> None:
@@ -97,15 +97,15 @@ class VikingDBMemoryStore(MemoryStore):
         body = {
             "CollectionName": self._collection,
             "Description": "aprntc distilled lessons (Experience Memory)",
+            # Server-side vectorize: `situation` is a TEXT field that gets embedded.
             "Fields": [
                 {"FieldName": "lesson_id", "FieldType": "string", "IsPrimaryKey": True},
-                {"FieldName": "content", "FieldType": "string"},
-                {"FieldName": "situation", "FieldType": "string"},
-                {"FieldName": "lesson_type", "FieldType": "string"},
-                {"FieldName": "reward", "FieldType": "float32"},
-                {"FieldName": "generation", "FieldType": "int64"},
-                {"FieldName": "pii_status", "FieldType": "string"},
-                {"FieldName": "embedding", "FieldType": "vector", "Dim": self._dim},
+                {"FieldName": "situation", "FieldType": "text"},
+                {"FieldName": "content", "FieldType": "string", "DefaultValue": "default"},
+                {"FieldName": "lesson_type", "FieldType": "string", "DefaultValue": "default"},
+                {"FieldName": "reward", "FieldType": "float32", "DefaultValue": 0.0},
+                {"FieldName": "generation", "FieldType": "int64", "DefaultValue": 0},
+                {"FieldName": "pii_status", "FieldType": "string", "DefaultValue": "default"},
             ],
         }
         return self._call_control("CreateVikingdbCollection", body)
@@ -123,18 +123,18 @@ class VikingDBMemoryStore(MemoryStore):
     # -- data plane: write ----------------------------------------------
 
     def upsert_lessons(self, lessons: list[Lesson]) -> int:
+        """Upsert lessons. Collection uses SERVER-SIDE vectorize, so we send TEXT in
+        the vector field (`situation`) and VikingDB embeds it — no client vectors.
+        Server-side vectorize caps each request at 1 row, so we send one at a time."""
         if not lessons:
             return 0
         written = 0
-        # VikingDB upsert cap is 100 rows per request.
-        for i in range(0, len(lessons), 100):
-            chunk = lessons[i : i + 100]
+        for lesson in lessons:
             self._call_data(
                 "/api/vikingdb/data/upsert",
-                {"collection_name": self._collection,
-                 "fields": [l.to_fields() for l in chunk]},
+                {"collection_name": self._collection, "data": [_to_row(lesson)]},
             )
-            written += len(chunk)
+            written += 1
         return written
 
     # -- data plane: read -----------------------------------------------
@@ -160,29 +160,34 @@ class VikingDBMemoryStore(MemoryStore):
     def retrieve(
         self,
         *,
-        query_embedding: list[float],
+        query: str,
         k: int = 4,
         min_reward: float = 0.0,
         generation: int | None = None,
         lesson_type: str | None = None,
         diversify: bool = True,
     ) -> list[RetrievedLesson]:
-        # Over-fetch so MMR has candidates to diversify over.
+        """Retrieve lessons by TEXT (server-side vectorize) via multimodal search.
+
+        Filtered hybrid retrieval + (client-side) MMR diversification over candidates.
+        Note: with server-side embedding the candidate vectors aren't returned, so MMR
+        falls back to score-ordered selection unless embeddings are present.
+        """
         fetch = max(k * 4, k) if diversify else k
         body: dict[str, Any] = {
             "collection_name": self._collection,
             "index_name": self._index,
-            "dense_vector": list(query_embedding),
+            "text": query,
+            "need_instruction": False,
             "limit": fetch,
             "output_fields": ["lesson_id", "content", "situation", "lesson_type",
-                              "reward", "generation", "pii_status", "embedding"],
-            "advance": {"dense_weight": self._dense_weight},
+                              "reward", "generation", "pii_status"],
         }
         flt = self._build_filter(min_reward, generation, lesson_type)
         if flt is not None:
             body["filter"] = flt
 
-        data = self._call_data("/api/vikingdb/data/search/vector", body)
+        data = self._call_data("/api/vikingdb/data/search/multi_modal", body)
         items = _extract_items(data)
         candidates: list[RetrievedLesson] = []
         for it in items:
@@ -193,12 +198,27 @@ class VikingDBMemoryStore(MemoryStore):
         if not diversify or len(candidates) <= k:
             return candidates[:k]
 
-        mmr_input = [
-            (idx, c.lesson.embedding or query_embedding, c.score)
-            for idx, c in enumerate(candidates)
-        ]
-        chosen = mmr_select(query_embedding, mmr_input, k=k)
-        return [candidates[i] for i in chosen]
+        # MMR needs candidate vectors; server-side vectorize doesn't return them, so we
+        # diversify only if embeddings happen to be present, else take top-k by score.
+        if all(c.lesson.embedding for c in candidates):
+            q = candidates[0].lesson.embedding  # query vector unavailable; use top hit as anchor
+            mmr_input = [(i, c.lesson.embedding, c.score) for i, c in enumerate(candidates)]
+            chosen = mmr_select(q, mmr_input, k=k)
+            return [candidates[i] for i in chosen]
+        return candidates[:k]
+
+
+def _to_row(lesson: Lesson) -> dict[str, Any]:
+    """Row for a server-side-vectorize collection: TEXT in `situation`, no raw vector."""
+    return {
+        "lesson_id": lesson.lesson_id,
+        "situation": lesson.situation,   # the vector (text) field — embedded server-side
+        "content": lesson.content,
+        "lesson_type": lesson.lesson_type.value,
+        "reward": lesson.reward,
+        "generation": lesson.generation,
+        "pii_status": lesson.pii_status,
+    }
 
 
 def _extract_items(data: dict[str, Any]) -> list[dict[str, Any]]:

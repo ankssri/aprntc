@@ -105,6 +105,25 @@ behind the same `AgentTap` core later. (ADR 0008.)
 
 **Next:** Stage 5 — Experience Memory (VikingDB REST adapter; control plane uses `Action=` params).
 
+## Stage 5 — Experience Memory (VikingDB) ✅ LIVE WORKING (2026-06-13, after fixes)
+**RESOLVED — the data-plane 403 was `service="air"`; the V2 API uses `service="vikingdb"`.**
+The control/data plane V2 calling-process docs were the key. Our oracle test gave false confidence
+(we fed the SDK the same wrong "air", so they agreed while both wrong vs the live server). Live API =
+the real oracle. Also: V2 upsert key is **`data`** (not `fields`); collection uses **server-side
+vectorize** (skylark-embedding-vision-251215, 2048-dim) → upsert TEXT in `situation`, query by TEXT via
+`/api/vikingdb/data/search/multi_modal` (not raw dense_vector).
+
+**LIVE VERIFIED:** auth OK (service=vikingdb), upsert OK (3 lessons, server-side embedded), semantic
+search OK — "how do refunds work?" ranked the refund lesson top (0.615). Adapter refactored to the
+text-vectorize shape; `service` default fixed to "vikingdb"; collection/index names default to
+ankur_aprntc_collection / ankur_aprntc_index, dim 2048. 104 tests green.
+
+**ONE CONSOLE STEP LEFT (user):** add scalar fields `reward, generation, lesson_type, pii_status` to
+index `ankur_aprntc_index` (Scalar field dropdown) to enable FILTERED retrieval. Pure semantic search
+already works; filters 400 until the fields are in the scalar index. (Our `create_index` already
+requests them via ScalarIndex[], so a programmatic re-create would set them.)
+
+### (historical) earlier diagnosis — kept for context
 ## Stage 5 — Experience Memory (VikingDB) ⏳ OFFLINE DONE, LIVE BLOCKED (2026-06-13)
 **Done (offline, 104 tests green):**
 - `memory/base.py` — `MemoryStore` Protocol + `Lesson`/`LessonType`/`RetrievedLesson`.

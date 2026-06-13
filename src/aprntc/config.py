@@ -74,7 +74,9 @@ class VikingDBConfig:
     region: str
     data_host: str
     control_host: str
-    service: str = "air"
+    # SigV4 signing service. MUST be "vikingdb" for the V2 API (control + data planes);
+    # confirmed live (service="air" 403s — the earlier volc_auth.py used a different API).
+    service: str = "vikingdb"
 
     def validate(self) -> None:
         missing = [

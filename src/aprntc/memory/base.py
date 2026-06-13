@@ -99,12 +99,12 @@ class MemoryStore(Protocol):
     def retrieve(
         self,
         *,
-        query_embedding: list[float],
+        query: str,
         k: int = 4,
         min_reward: float = 0.0,
         generation: int | None = None,
         lesson_type: str | None = None,
         diversify: bool = True,
     ) -> list[RetrievedLesson]:
-        """Filtered hybrid retrieval + (optional) MMR diversification."""
+        """Filtered retrieval by query TEXT (server-side vectorize) + optional MMR."""
         ...
