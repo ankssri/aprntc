@@ -219,7 +219,16 @@ dashboard (4 screens), **light/dark theme toggle**.
   install && npm run dev` (proxies /api → uvicorn). Cross-file refs verified by hand (couldn't run tsc).
 - Streamlit UI (`src/aprntc/ui/`) retained as the no-Node fallback.
 
-**Next:** user installs Node → `npm install && npm run dev` to bring the dashboard live; verify render.
+**✅ VERIFIED LIVE (2026-06-14, Node 26 installed):** `npm install` + `npm run build` clean (tsc -b +
+vite, 0 errors, 43 modules). Ran backend (uvicorn) + frontend (vite) together: `/api/review` proxy
+works, real gate data renders. **Screenshotted the running app** — Promotion review screen shows the
+rejected-by-gate verdict, red metrics (25% win/5% CI/75% loss), green hard-gate banners, the 3 distilled
+directives with lesson-id provenance, Promote locked / Roll back active. **Both dark AND light themes
+verified** via the toggle. Routing works (Trajectories empty-state renders cleanly). Zero console errors.
+The dashboard is real and working.
+
+**Next:** (optional) wire a persistent TrajectoryStore + VikingDB memory into the API module-level
+`app` so Trajectories/Lessons screens show live data; merge feat/web-dashboard.
 
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.

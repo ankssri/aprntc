@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/icons.tsx","./src/components/ui.tsx","./src/lib/api.ts","./src/lib/hooks.ts","./src/lib/theme.tsx","./src/screens/lessons.tsx","./src/screens/lineage.tsx","./src/screens/review.tsx","./src/screens/trajectories.tsx"],"version":"5.9.3"}
