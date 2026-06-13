@@ -38,15 +38,17 @@ test hook. (Branch `chore/project-docs-ci`.)
 
 ---
 
-## Stage 1 — Trajectory schema + Trajectory Store ⏳ NEXT
-**Plan:**
-1. **Dedicated schema design pass** — enumerate/verify edge cases (multimodal parts, reasoning_content,
-   partial/streaming turns, tool args/results across collectors, missing-per-source) → **then LOCK**
-   (write as an ADR). Collectors are built only after the schema is locked.
-2. Trajectory Store (system of record; SQLite to bootstrap) — PII-scrub at ingest, append-only
-   labels/outcomes, materialized fused `reward` view, `delete_by_subject` + retention TTL.
+## Stage 1 — Trajectory schema + Trajectory Store ⏳ IN PROGRESS
+**Part 1 — schema ✅ DONE (2026-06-13):**
+- Schema designed (dedicated pass), locked as **ADR 0007**, implemented in
+  `src/aprntc/trajectory/schema.py` (stdlib dataclasses: Episode/Turn/Step/ContentPart/Label/Outcome
+  + enums). Media **by reference** (no inline blobs); `schema_version`; `partial` flags;
+  per-step `source_fidelity`; `pii_status`. **19 round-trip/edge-case tests, all green (33 total).**
 
-**Verify:** schema round-trips every collector's shape; PII scrubbed before persistence.
+**Part 2 — Trajectory Store ⏳ NEXT:**
+- System of record (SQLite to bootstrap) — PII-scrub at ingest, append-only labels/outcomes,
+  materialized fused `reward` view, `delete_by_subject` + retention TTL.
+- **Verify:** schema round-trips through the store; PII scrubbed before persistence.
 
 ---
 

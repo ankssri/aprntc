@@ -13,3 +13,4 @@ Format: short. Status ∈ Accepted / Superseded / Proposed. Number sequentially.
 | [0004](0004-tap-collector-set.md) | Tap = protocol-boundary collectors, wrap OSS | Accepted |
 | [0005](0005-not-observability.md) | aprntc is a learning product, not observability | Accepted |
 | [0006](0006-outcome-anchored-learning.md) | Outcome-anchored quality + playbook distillation (no fine-tuning in Phase 1) | Accepted |
+| [0007](0007-trajectory-schema.md) | Canonical Trajectory schema | Accepted |
