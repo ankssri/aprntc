@@ -163,6 +163,28 @@ vector field name + dim. Then re-run `scripts/demo_memory.py` (adjust collection
 **Next:** proceed to Stage 6 (Distillation + Child runtime) against the proven MemoryStore interface in
 parallel; finish VikingDB live verify when console provisioning is done.
 
+## Stage 6 — Distillation + Child runtime ✅ DONE (2026-06-13) — LOOP CLOSED
+**Done:**
+- `distill/playbook.py` — `Playbook` (system prompt + exemplars + directives + watch_out, content-
+  addressed hash, token-budgeted render) + `PlaybookDiff` (attributable: provenance lesson_id→item;
+  `apply` increments generation + dedups + caps change/gen; `revert` = single-lesson rollback).
+- `distill/distiller.py` — buckets scored episodes by fused reward (success/failure), mines lessons via
+  LLM, success→directives / failure→watch_out, builds an attributable diff.
+- `distill/child.py` — `ChildAgent`: clone of parent driven by the Playbook (rendered system prompt) +
+  optional memory retrieval (records a `memory_retrieve` step; best-effort — memory errors don't break it).
+- 12 new tests (117 total). 
+- **LIVE END-TO-END (`scripts/demo_loop.py`):** parent runs → episodes scored (support_outcome) →
+  distiller mines 3 lessons → upserted to VikingDB → child G1 built (playbook diff applied) → child
+  retrieves from memory at inference. The observe→label→distill→improve loop is CLOSED on live infra. ✅
+
+**Next:** Stage 7 — Promotion gate + Lineage + UI. THEN the deliverable below.
+
+## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
+When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
+write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,
+component design, data flow, the BytePlus integration (ModelArk + VikingDB), key decisions (link ADRs),
+and how the apprentice produces a better child. Target: `docs/DESIGN_AND_SOLUTION.md`. Do NOT skip.
+
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
 - Stage 3: the two demo agents (support-chat + RAG-Q&A, synthetic data).
