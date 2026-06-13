@@ -130,7 +130,18 @@ behind the same `AgentTap` core later. (ADR 0008.)
 - `scripts/demo_memory.py` written (creates collection+index, upserts, hybrid search) — re-run once the
   data-plane credential/provisioning is sorted.
 
-**Next:** resolve data-plane auth (user), then re-run demo_memory.py; then Stage 6.
+**Update (2026-06-13):** corrected VIKINGDB_SK (now 60ch, base64 `=`-terminated) — data plane STILL
+403s. **Definitive test:** signed the same data-plane request with the OFFICIAL volcengine SDK and sent
+it → also `403 AccessDenied`. So this is conclusively NOT our code (vendor SDK fails identically); it is
+account/provisioning. Decision: **user creates the collection + index from the BytePlus Console**
+(also resolves the control-plane `InvalidAction`, since the instance/Action/Version come from the console).
+
+**Need from console after creation (to finish live verify):** (1) exact collection + index names,
+(2) data-plane host/endpoint for the instance, (3) any instance-scoped AK/SK, (4) field schema incl.
+vector field name + dim. Then re-run `scripts/demo_memory.py` (adjust collection/index/dim to match).
+
+**Next:** proceed to Stage 6 (Distillation + Child runtime) against the proven MemoryStore interface in
+parallel; finish VikingDB live verify when console provisioning is done.
 
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
