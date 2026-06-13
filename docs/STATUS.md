@@ -91,7 +91,19 @@ behind the same `AgentTap` core later. (ADR 0008.)
   3 gold questions; 5 episodes stored — `sdk_wrapper`, **pii=scrubbed**, real endpoint id, model_call
   tokens + reasoning captured. Stages 0→3 compose end-to-end on live infra. ✅
 
-**Next:** Stage 4 — Evaluation/Labeling (pairwise judge ≠ policy, outcome-joiner, confidence fusion).
+## Stage 4 — Evaluation / Labeling ✅ DONE (2026-06-13)
+**Done:**
+- `eval/judge.py` — `PairwiseJudge` (recused; constructor RAISES if judge==policy). Order-randomization
+  de-bias (child A/B slot de-mapped back), rubric + strict-JSON output (robust parse), → `judge` Label.
+- `eval/outcomes.py` — the ANCHOR (deterministic, no LLM): `support_outcome` (grounded + answered, not
+  punted) and `rag_outcome` (citation + retrieval + reference-match vs gold) → `outcome` Labels.
+- `eval/health.py` — `judge_reference_agreement` (drift kill-switch signal) + `reward_hacking_alarm`
+  (judge↑ while outcome flat).
+- Fusion reuses the store's `fused_reward` (outcome > judge), proven anchored.
+- **Verified offline:** 90 tests (+17). **Verified LIVE:** DeepSeek-V4-pro judge picked the better
+  answer AND position-de-bias resolved correctly (child in slot B → winner=child, score 1.0).
+
+**Next:** Stage 5 — Experience Memory (VikingDB REST adapter; control plane uses `Action=` params).
 
 ## Backlog / later stages (per docs/DESIGN.md §8)
 - Stage 2 collectors (deferred within stage): LiteLLM proxy → OTel ingester → MCP/ContextForge.
