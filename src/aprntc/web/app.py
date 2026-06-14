@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from aprntc.promote.lineage import LineageRegistry
@@ -39,6 +39,10 @@ class AppState:
     agent_run: Any | None = None
     # B0: per-agent playbook registry external agents fetch from (lazy default in from_env)
     playbooks: Any | None = None
+    # B2: optional TenantResolver. When set, the externally-facing playbook endpoints
+    # require an API key and serve each tenant's ISOLATED registry. When None, the API
+    # runs single-tenant/dev mode using `playbooks` above (existing behavior).
+    tenant_resolver: Any | None = None
 
     def lineage(self) -> LineageRegistry:
         return LineageRegistry(self.lineage_path)
@@ -382,26 +386,41 @@ def create_app(state: AppState | None = None) -> FastAPI:
         fused = state.store.fused_reward(episode_id)
         return {"ok": True, "fused_reward": fused[0] if fused else None}
 
-    # -- B0: playbook serving (external agents fetch their active playbook) ----
-    @app.get("/api/playbooks/{agent_id}/active")
-    def get_active_playbook(agent_id: str) -> dict[str, Any]:
-        """The endpoint an EXTERNAL agent calls each request (or caches) to get its
-        active playbook — promotion/rollback just changes what this returns."""
+    # -- B0/B2: playbook serving — tenant-isolated when a resolver is configured --
+    def _registry(request: "Request"):
+        """Resolve the playbook registry for this request.
+
+        With a TenantResolver (B2): require a valid API key (X-API-Key / Bearer) and
+        return that tenant's ISOLATED registry. Without one: single-tenant/dev mode
+        using the shared registry. Returns (registry, tenant_id_or_None).
+        """
+        if state.tenant_resolver is not None:
+            ctx = state.tenant_resolver.resolve(_api_key(request))
+            if ctx is None:
+                raise HTTPException(status_code=401, detail="invalid or missing API key")
+            from aprntc.serving import PlaybookRegistry
+            return PlaybookRegistry(ctx.playbooks_path), ctx.tenant_id
         if state.playbooks is None:
             raise HTTPException(status_code=503, detail="playbook registry not configured")
+        return state.playbooks, None
+
+    @app.get("/api/playbooks/{agent_id}/active")
+    def get_active_playbook(agent_id: str, request: Request) -> dict[str, Any]:
+        """The endpoint an EXTERNAL agent calls each request (or caches) to get its
+        active playbook — promotion/rollback just changes what this returns."""
+        registry, _ = _registry(request)
         try:
-            return state.playbooks.get_active(agent_id).to_dict()
+            return registry.get_active(agent_id).to_dict()
         except KeyError:
             raise HTTPException(status_code=404,
                                 detail=f"no playbook registered for agent {agent_id!r}")
 
     @app.post("/api/playbooks/{agent_id}/register")
-    def register_playbook(agent_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def register_playbook(agent_id: str, body: dict[str, Any], request: Request) -> dict[str, Any]:
         """Register an external agent's initial G0 (its current system prompt)."""
         from aprntc.distill.playbook import Playbook
 
-        if state.playbooks is None:
-            raise HTTPException(status_code=503, detail="playbook registry not configured")
+        registry, _ = _registry(request)
         sp = (body.get("system_prompt") or "").strip()
         if not sp:
             raise HTTPException(status_code=400, detail="system_prompt is required for G0")
@@ -411,18 +430,28 @@ def create_app(state: AppState | None = None) -> FastAPI:
             exemplars=list(body.get("exemplars", [])),
             watch_out=list(body.get("watch_out", [])),
         )
-        return state.playbooks.register(agent_id, pb).to_dict()
+        return registry.register(agent_id, pb).to_dict()
 
     @app.post("/api/playbooks/{agent_id}/rollback")
-    def rollback_playbook(agent_id: str) -> dict[str, Any]:
-        if state.playbooks is None:
-            raise HTTPException(status_code=503, detail="playbook registry not configured")
+    def rollback_playbook(agent_id: str, request: Request) -> dict[str, Any]:
+        registry, _ = _registry(request)
         try:
-            return state.playbooks.rollback(agent_id).to_dict()
+            return registry.rollback(agent_id).to_dict()
         except (KeyError, RuntimeError) as e:
             raise HTTPException(status_code=409, detail=str(e))
 
     return app
+
+
+def _api_key(request: "Request") -> str | None:
+    """Extract the API key from X-API-Key or an Authorization: Bearer header."""
+    key = request.headers.get("x-api-key")
+    if key:
+        return key
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return None
 
 
 def _episode_summary(ep: Any, store: TrajectoryStore) -> dict[str, Any]:

@@ -268,6 +268,14 @@ external integration — an external agent fetches its active playbook one-line;
 served (no redeploy). +12 tests (243). Verified live over HTTP (register G0 → fetch active). Remaining
 B: auth/multi-tenancy (B2), deploy (B1), ops (B3), UI polish (B4); optional tiny client SDK helper.
 
+## B2 — Auth + multi-tenancy ✅ DONE (2026-06-14)
+`src/aprntc/tenancy/`: `TenantStore` (API keys HASHED, create/issue/revoke/rotate/deactivate/auth) +
+`TenantResolver` (key → tenant → isolated paths `{root}/{tenant_id}/...`). Web API: optional
+`AppState.tenant_resolver` — when set, playbook endpoints require X-API-Key/Bearer + serve per-tenant
+isolated registries; when unset, single-tenant/dev mode unchanged. +14 tests (257). Verified isolation
+(tenant B can't read tenant A's same-agent_id data). Follow-up: extend tenant scoping to the other
+endpoints (trajectories/lineage/lessons/feedback) + dashboard login (B4). Remaining B: B1 deploy, B3 ops.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

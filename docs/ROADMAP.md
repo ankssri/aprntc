@@ -147,7 +147,16 @@ Real work to run aprntc as a product, but never part of the planning-session fea
   Still needs auth/multi-tenancy (B2) for per-customer isolation; a tiny client SDK helper is optional.
 - **B1 — Deploy** — containerize the FastAPI backend; serve the built React frontend (static) behind it
   or a CDN; env/secrets management; a hosted VikingDB/Postgres.
-- **B2 — Auth + multi-tenancy** — login, per-customer isolation of trajectories/lessons/lineage.
+- **B2 — Auth + multi-tenancy** ✅ DONE (2026-06-14). `src/aprntc/tenancy/`:
+  `TenantStore` (tenants + API keys stored HASHED, never plaintext; create/issue/revoke/rotate/
+  deactivate; authenticate) + `TenantResolver` (API key → tenant → that tenant's ISOLATED storage paths
+  `{root}/{tenant_id}/...`). Wired into the web API: an optional `AppState.tenant_resolver` — when set,
+  the externally-facing playbook endpoints require a key (X-API-Key / Bearer) and serve each tenant's own
+  registry; when unset, single-tenant/dev mode (unchanged). +14 tests (257 total); verified tenant B
+  can't read tenant A's data even with the same agent_id.
+  **Follow-up:** apply the same tenant scoping to the OTHER endpoints (trajectories/lineage/lessons/
+  feedback) — currently those still use the shared dev state; B0 playbook endpoints are the
+  externally-critical ones and are isolated. Dashboard login UI is part of B4.
 - **B3 — Robustness/ops** — background job scheduler for nightly distillation, retries, observability of
   aprntc itself, rate/cost controls, Postgres swap for the SQLite trajectory store at scale.
 - **B4 — UI polish** — remaining screen edge cases, loading/error states, real-time updates.
