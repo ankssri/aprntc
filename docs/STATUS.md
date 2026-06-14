@@ -210,6 +210,13 @@ BytePlus infra, with the human-gated acceptance bar protecting against bad promo
   answer (reward 67%); clicked 👍 → persisted as USER_EXPLICIT(1.0), fused reward moved to 0.79. +4 web
   tests (169 total).
 
+## Trajectories-detail feedback (2026-06-14)
+👍/👎 now also on the **Trajectories detail view** (expand an episode → thumbs by the final answer),
+not just "Try an agent". Reuses `POST /api/feedback` (USER_EXPLICIT label); reflects any prior vote,
+refetches to show the updated label + fused reward. Verified live: 👎 → user_explicit(0.0) persisted,
+fused reward moved to 0.62. Roadmap sequencing locked: (0)✓ → A1 → A2 → [pause for real BytePlus data]
+→ A3 → A4 → A6 → (B); A5 deferred (closed-source LLMs can't be fine-tuned — discuss before any A5).
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

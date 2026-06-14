@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, EpisodeSummary } from "../lib/api";
 import { useAsync, pct } from "../lib/hooks";
 import { Badge, Card, Empty, PageHeader, Spinner } from "../components/ui";
-import { IconTrace } from "../components/icons";
+import { IconThumbDown, IconThumbUp, IconTrace } from "../components/icons";
 
 export default function Trajectories() {
   const { data, loading, error } = useAsync(() => api.trajectories(100), []);
@@ -59,7 +59,7 @@ function EpisodeRow({ e, open, onToggle }: { e: EpisodeSummary; open: boolean; o
           {detail.loading ? (
             <span className="text-muted">Loading…</span>
           ) : detail.data ? (
-            <TrajectoryDetail data={detail.data as any} />
+            <TrajectoryDetail data={detail.data as any} episodeId={e.episode_id} onVoted={detail.refetch} />
           ) : (
             <span className="text-danger">Failed to load</span>
           )}
@@ -69,12 +69,15 @@ function EpisodeRow({ e, open, onToggle }: { e: EpisodeSummary; open: boolean; o
   );
 }
 
-function TrajectoryDetail({ data }: { data: any }) {
+function TrajectoryDetail({ data, episodeId, onVoted }: { data: any; episodeId: string; onVoted: () => void }) {
   return (
     <div className="space-y-3">
       {data.final_output && (
         <div>
-          <div className="mb-1 text-xs text-muted">Final answer</div>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-muted">Final answer</span>
+            <FeedbackButtons episodeId={episodeId} labels={data.labels ?? []} onVoted={onVoted} />
+          </div>
           <div className="rounded-lg bg-surface-2 px-3 py-2 text-sm">{data.final_output}</div>
         </div>
       )}
@@ -112,6 +115,65 @@ function TrajectoryDetail({ data }: { data: any }) {
           {data.fused_reward && <Badge tone="accent">fused {pct(data.fused_reward.reward)}</Badge>}
         </div>
       )}
+    </div>
+  );
+}
+
+function FeedbackButtons({
+  episodeId,
+  labels,
+  onVoted,
+}: {
+  episodeId: string;
+  labels: any[];
+  onVoted: () => void;
+}) {
+  // reflect an existing explicit vote (so reopening shows the prior thumbs)
+  const prior = labels.find((l) => l.source === "user_explicit");
+  const initial = prior ? (prior.score >= 0.5 ? "up" : "down") : null;
+  const [vote, setVote] = useState<"up" | "down" | null>(initial);
+  const [sending, setSending] = useState(false);
+
+  const send = async (v: "up" | "down") => {
+    if (sending || vote === v) return;
+    setSending(true);
+    try {
+      await api.feedback(episodeId, v);
+      setVote(v);
+      onVoted(); // refetch so the new label + fused reward show
+    } catch {
+      /* best-effort */
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => send("up")}
+        disabled={sending}
+        aria-label="thumbs up"
+        className={`rounded-md border p-1 transition disabled:opacity-50 ${
+          vote === "up"
+            ? "border-success bg-success/10 text-success"
+            : "border-border text-muted hover:bg-surface-2 hover:text-fg"
+        }`}
+      >
+        <IconThumbUp className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => send("down")}
+        disabled={sending}
+        aria-label="thumbs down"
+        className={`rounded-md border p-1 transition disabled:opacity-50 ${
+          vote === "down"
+            ? "border-danger bg-danger/10 text-danger"
+            : "border-border text-muted hover:bg-surface-2 hover:text-fg"
+        }`}
+      >
+        <IconThumbDown className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }

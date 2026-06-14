@@ -50,9 +50,18 @@ it WORSE (30%), confirming the substance-rich answers are genuinely better; we r
 This mirrors A0's insight: bigger, more decisive wins need a parent with bigger real flaws
 (or real production traffic, A2). Chose to keep it real + documented, not chase a lucky pass.
 
-## Current focus
-**→ next: A2 (online shadow/canary) — prove on real traffic where headroom is largest.**
-Optionally: widen demo headroom (weaker parent model) to show a clean gate-pass.
+## Current focus & locked sequencing (user, 2026-06-14)
+Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE] → A3 → A4 → A6 → then (B)**.
+- **(0) DONE-NEXT:** wire 👍/👎 into the Trajectories detail view (thumbs currently only on "Try an agent").
+- **A1 → A2:** next two features (external collectors, then online shadow/canary).
+- **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
+  agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
+- **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
+- **⚠️ A5 reminder (raise with user before any A5 work):** fine-tuning (PEFT/LoRA) only applies to
+  **open-source/open-weight** models. The user's current LLMs (Seed-2.0-pro, DeepSeek-V4-pro via
+  ModelArk) are **closed-source → fine-tuning NOT possible** on them. Discuss whether to (a) keep A5
+  for a future open-weight model, or (b) drop it. Do NOT start A5 without that discussion.
+- After ALL (A) tasks → move to (B) Productionization.
 
 ## (A) Planned v1+ features (from planning sessions — canonical list)
 Ordered by recommended sequence:
