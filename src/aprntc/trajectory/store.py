@@ -253,22 +253,31 @@ class TrajectoryStore:
 
     # -- fused reward (ADR 0006: outcome-anchored, confidence-weighted) --
 
-    def fused_reward(self, episode_id: str) -> tuple[float, float] | None:
+    def fused_reward(
+        self,
+        episode_id: str,
+        *,
+        weights: "dict[LabelSource, float] | None" = None,
+    ) -> tuple[float, float] | None:
         """Return ``(reward, confidence)`` fused from all labels, or ``None`` if
         there are no labels.
 
-        Confidence-weighted by reliability priority (outcome > explicit >
-        implicit > judge). Each label contributes ``weight * confidence``; the
-        reward is that-weighted mean of scores. ``confidence`` of the fused value
-        rises when higher-reliability sources are present. MVP fixed weights.
+        Confidence-weighted by source reliability. Each label contributes
+        ``weight * confidence``; the reward is that-weighted mean of scores; the
+        fused confidence is anchored by the most reliable source present.
+
+        ``weights`` overrides the default fixed reliability map with **learned**
+        weights (A3, from :func:`aprntc.eval.fusion.learn_weights`). When omitted,
+        the fixed ``_SOURCE_WEIGHT`` priors are used (cold-start safe).
         """
         labels = self.labels_for(episode_id)
         if not labels:
             return None
+        w_map = weights or _SOURCE_WEIGHT
         num = den = 0.0
         max_w = 0.0
         for lbl in labels:
-            w = _SOURCE_WEIGHT.get(lbl.source, 0.3)
+            w = w_map.get(lbl.source, 0.3)
             c = lbl.confidence if lbl.confidence is not None else 1.0
             weight = w * c
             num += weight * lbl.score
@@ -279,6 +288,17 @@ class TrajectoryStore:
         reward = num / den
         # Fused confidence: anchored by the most reliable source present.
         return (reward, max_w)
+
+    def learn_fusion_weights(self, *, min_n: int = 5, blend: float = 0.5):
+        """Learn per-source fusion weights from this store's label history (A3).
+
+        Returns a :class:`aprntc.eval.fusion.FusionWeights`; pass ``.as_map()`` to
+        ``fused_reward(weights=...)``. Imported lazily to keep the store core light.
+        """
+        from aprntc.eval.fusion import learn_weights
+
+        all_labels = [self.labels_for(e.episode_id) for e in self.query()]
+        return learn_weights(all_labels, min_n=min_n, blend=blend)
 
     # -- privacy ops -----------------------------------------------------
 

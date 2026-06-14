@@ -53,8 +53,9 @@ This mirrors A0's insight: bigger, more decisive wins need a parent with bigger 
 ## Current focus & locked sequencing (user, 2026-06-14)
 Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE] → A3 → A4 → A6 → then (B)**.
 - **(0) DONE-NEXT:** wire 👍/👎 into the Trajectories detail view (thumbs currently only on "Try an agent").
-- **A1 DONE** (external collectors). **A2 DONE** (online shadow/canary).
-  **⏸ NOW AT THE PAUSE** — user does real BytePlus-agent testing to generate real data before A3.
+- **A1 DONE** (external collectors). **A2 DONE** (online shadow/canary). **A3 DONE** (learned fusion).
+  User tested the BytePlus agent (21 eps / 9 thumbs); A3 built + proven, activates once judge+anchor
+  co-occur on episodes (current data has anchors only). **→ A4 next** (auto-promotion).
 - **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
   agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
 - **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
@@ -93,15 +94,29 @@ Ordered by recommended sequence:
      hash routing (stable per user, no `random`); push-based metric feed; **auto-rollback** when the
      child's mean reward falls below the parent's baseline by `degrade_margin`.
    - +11 tests (199 total). Live-verify needs real traffic (that's the point) — wire at deploy.
-4. **A3 — Learned fusion weights + judge calibration** — auto-learn how much to trust each signal
-   (outcome/explicit/judge) from historical agreement with the anchor; auto-down-weight a biased judge.
-   Needs accumulated data.
+4. **A3 — Learned fusion weights + judge calibration** ✅ DONE (2026-06-14).
+   `eval/fusion.py` `learn_weights()` — calibrates each source by its agreement with the anchor
+   (outcome > human > explicit) on the SAME episode; a source that disagrees gets auto-down-weighted
+   (blend + min_n guard for cold-start). `store.fused_reward(weights=...)` accepts the learned map;
+   `store.learn_fusion_weights()` learns from its own history. +9 tests (211 total). Verified: a judge
+   that contradicts real user feedback over 12 episodes drops 0.40 → 0.23.
+   **DATA NOTE:** activation needs episodes with BOTH a judge label AND an anchor (outcome/feedback) on
+   the same episode. Current real data (21 eps, 9 thumbs) has anchors but NO judge labels (the judge
+   only runs in the gate/shadow, not on individual Try-an-agent runs) → weights stay at priors until
+   shadow/gate runs accumulate judge+anchor pairs. A3 falls back to priors safely until then.
 5. **A4 — Auto-promotion (low-risk diffs)** — promote without human approval once judge↔outcome trust is
    established. The payoff of the autonomous-loop thesis. (User decision: human now, auto later.)
 6. **A5 — Fine-tuning (PEFT/LoRA)** — Phase-2: compress validated lessons into model weights when prompt
    length/latency hits a ceiling. Sits ON TOP of memory+playbook, never replaces it.
 7. **A6 — Multi-agent fleets / cross-agent lesson sharing** — one apprentice across many parent agents;
    share lessons between them.
+
+## Known issues / revisit later
+- **BytePlus agent RAG quality** (user, 2026-06-14): retrieval+answers still not great after the KB
+  expansion + TF-IDF/title-boost. Local keyword search has a ceiling at 1040 chunks. Likely next steps
+  when revisited: (a) semantic embeddings retrieval (use BytePlus Embedding API / VikingDB instead of
+  keyword), (b) better chunking (current heading-split can fragment tables/params), (c) rerank top-k.
+  Deferred by user — "work on it later".
 
 ## (B) Productionization (not planned features — deployment/robustness)
 Real work to run aprntc as a product, but never part of the planning-session feature roadmap:

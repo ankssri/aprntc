@@ -236,6 +236,15 @@ Live-verify needs real traffic (wire at deploy).
 user will first do **real testing with the BytePlus support agent** to generate real data. Do NOT start
 A3 until the user signals. A5 still deferred (closed-source LLMs; discuss first).
 
+## A3 — Learned fusion weights ✅ DONE (2026-06-14)
+`eval/fusion.py` `learn_weights()`: calibrate each label source by its agreement with the anchor
+(outcome>human>explicit) on the same episode → auto-down-weight a biased judge (blend + min_n cold-start
+guard). `store.fused_reward(weights=...)` takes the learned map; `store.learn_fusion_weights()` learns
+from history. +9 tests (211). Verified: a judge contradicting real feedback over 12 eps drops 0.40→0.23.
+Activation needs judge+anchor on the same episode; real data so far (21 eps/9 thumbs) has anchors only
+→ priors hold safely until shadow/gate runs add judge labels. KB RAG quality flagged for later (ROADMAP
+"Known issues"). → A4 next.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

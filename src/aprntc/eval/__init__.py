@@ -11,6 +11,7 @@ reliability: outcome > explicit > implicit > judge):
 from aprntc.eval.judge import JudgeVerdict, PairwiseJudge
 from aprntc.eval.outcomes import rag_outcome, support_outcome
 from aprntc.eval.health import judge_reference_agreement, reward_hacking_alarm
+from aprntc.eval.fusion import FusionWeights, SourceAgreement, learn_weights
 
 __all__ = [
     "JudgeVerdict",
@@ -19,4 +20,7 @@ __all__ = [
     "support_outcome",
     "judge_reference_agreement",
     "reward_hacking_alarm",
+    "FusionWeights",
+    "SourceAgreement",
+    "learn_weights",
 ]
