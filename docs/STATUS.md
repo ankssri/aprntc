@@ -217,6 +217,15 @@ refetches to show the updated label + fused reward. Verified live: 👎 → user
 fused reward moved to 0.62. Roadmap sequencing locked: (0)✓ → A1 → A2 → [pause for real BytePlus data]
 → A3 → A4 → A6 → (B); A5 deferred (closed-source LLMs can't be fine-tuned — discuss before any A5).
 
+## A1 — External tap collectors ✅ DONE (2026-06-14)
+Three collectors behind the AgentTap core, all normalize → Episode, all unit-tested offline:
+- `tap/egress_proxy.py` (LiteLLM CustomLogger; closed-source agents) — `handle_event` pure core +
+  `make_proxy_logger` (needs `[proxy]`).
+- `tap/otel_ingest.py` (`span_to_episode`/`spans_to_episodes`; GenAI spans, OpenLLMetry+OpenInference).
+- `tap/mcp_ingest.py` (`mcp_record_to_step`/`mcp_records_to_episode`; MCP gateway tool logs, full fidelity).
+- shared `tap/normalize.py`; `tap/README.md`; +19 tests (188 total).
+- Live-verify deferred (each needs its external service); mapping logic proven. → A2 next.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

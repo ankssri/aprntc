@@ -53,7 +53,7 @@ This mirrors A0's insight: bigger, more decisive wins need a parent with bigger 
 ## Current focus & locked sequencing (user, 2026-06-14)
 Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE] → A3 → A4 → A6 → then (B)**.
 - **(0) DONE-NEXT:** wire 👍/👎 into the Trajectories detail view (thumbs currently only on "Try an agent").
-- **A1 → A2:** next two features (external collectors, then online shadow/canary).
+- **A1 DONE** (external collectors). **→ A2 next** (online shadow/canary).
 - **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
   agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
 - **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
@@ -70,9 +70,19 @@ Ordered by recommended sequence:
    prune low-efficacy), larger gold/held-out sets for a powered win-rate, reference-guided distillation.
    Goal: a child that reliably clears the acceptance bar. *(Adjacent to learned-fusion; non-MVP-blocking
    in the original plan but the practical prerequisite for everything else.)*
-2. **A1 — External tap collectors** — LiteLLM egress proxy (closed-source agents), OTel ingester
-   (instrumented frameworks), MCP/ContextForge (MCP-tool agents). Lets aprntc tap REAL external parent
-   agents, not just our own SDK-wrapped demos. *The connection mechanism for production (see PRODUCTION.md).*
+2. **A1 — External tap collectors** ✅ DONE (2026-06-14). Built behind the AgentTap core, all normalize
+   into the canonical Episode, all unit-tested offline (the external services only deliver raw dicts):
+   - **Egress proxy** (`tap/egress_proxy.py`) — LiteLLM `CustomLogger`; `handle_event()` is the pure
+     normalize+emit core (fail-open, testable w/o litellm); `make_proxy_logger()` builds the real
+     CustomLogger when the `[proxy]` extra is installed. Captures model traffic for closed-source agents.
+   - **OTel ingester** (`tap/otel_ingest.py`) — `span_to_episode()`/`spans_to_episodes()` map GenAI spans
+     (tolerant union of OpenLLMetry `gen_ai.*` + OpenInference `llm.*`); pure dict→Episode (run the OTel
+     Collector externally, point its export at this). Fidelity=partial.
+   - **MCP interceptor** (`tap/mcp_ingest.py`) — `mcp_record_to_step()`/`mcp_records_to_episode()` map an
+     MCP gateway's (e.g. ContextForge) tool-call logs/OTel-spans to tool steps (full fidelity).
+   - Shared `tap/normalize.py`; +19 tests (188 total).
+   - **Live-verify deferred:** each needs its external service (LiteLLM gateway / OTel Collector / MCP
+     gateway) to exercise end-to-end — wire when a real external parent is connected. Mapping logic proven.
 3. **A2 — Online shadow / A-B canary** — run the child on LIVE production traffic in parallel (shadow:
    outputs discarded, judged pairwise vs parent) or post-promotion gradual rollout (canary) with
    auto-rollback. Turns "proven on a held-out set" into "proven on real traffic." The marquee v1 feature.

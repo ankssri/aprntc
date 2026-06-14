@@ -1,0 +1,31 @@
+# Tap collectors
+
+`AgentTap` captures a parent agent's behavior into the canonical `Trajectory`
+(ADR 0004, 0007). Collectors intercept at stable protocol boundaries and all
+normalize into an `Episode` → a sink (e.g. `TrajectoryStore.put_episode`).
+
+| Collector | File | For | Fidelity | External dep |
+|---|---|---|---|---|
+| SDK wrapper | `sdk_wrapper.py` | agents we own (our demos) | full | none |
+| Egress proxy | `egress_proxy.py` | closed-source agents | inferred (model traffic) | LiteLLM (`[proxy]`) |
+| OTel ingester | `otel_ingest.py` | OTel-instrumented frameworks | partial | OTel Collector (`[otel]`) |
+| MCP interceptor | `mcp_ingest.py` | MCP-tool agents | full (tools) | MCP gateway, e.g. ContextForge |
+
+Design: each collector is a **pure normalizer** (`normalize.py` is shared) — the
+external service only delivers raw dicts, so the mapping logic is fully unit-tested
+offline. We never hard-import the external libs; the collector degrades gracefully
+if the extra isn't installed.
+
+## Wiring (production)
+- **Egress proxy:** run a self-hosted LiteLLM gateway; point the agent's model
+  `base_url` at it; register `make_proxy_logger(store.put_episode)` via
+  `litellm.callbacks`. Closed-source agents need zero code change.
+- **OTel:** run the OpenTelemetry Collector; have it export GenAI spans to a small
+  endpoint that calls `spans_to_episodes(spans)` → sink. Source instrumentation:
+  OpenLLMetry / OpenInference (free, OSS).
+- **MCP:** run an OSS MCP gateway (ContextForge) between agent and MCP servers;
+  feed its tool-call logs to `mcp_records_to_episode(...)` → sink.
+
+Cross-collector correlation (model stream + tool stream → one trajectory) is
+**best-effort** by design (ADR 0005) — aprntc learns from response *quality*, not
+exhaustive tracing.
