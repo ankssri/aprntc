@@ -245,6 +245,13 @@ Activation needs judge+anchor on the same episode; real data so far (21 eps/9 th
 → priors hold safely until shadow/gate runs add judge labels. KB RAG quality flagged for later (ROADMAP
 "Known issues"). → A4 next.
 
+## A4 — Auto-promotion ✅ DONE (2026-06-14)
+`promote/auto.py` `AutoPromotionPolicy.decide(gate, diff, trust)` → AUTO_PROMOTE / HUMAN_REVIEW /
+REJECT. Default-OFF (opt-in). Auto only if ALL: enabled + gate passed + margin above bar (win≥60/
+CI>55/loss<5) + zero regression/safety + low-risk additive diff + trust≥0.80. Else HUMAN_REVIEW (never
+silent reject); failed gate → REJECT; reports every blocked guardrail. +11 tests (222). → A6 next
+(A5 deferred: closed-source LLMs, discuss first). Live-flow/dashboard wiring is a small follow-up.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

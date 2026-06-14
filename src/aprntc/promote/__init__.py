@@ -9,6 +9,7 @@
 from aprntc.promote.stats import wilson_interval, GateReport
 from aprntc.promote.gate import PromotionGate, EvalCase
 from aprntc.promote.lineage import Generation, LineageRegistry
+from aprntc.promote.auto import AutoDecision, AutoPromotionPolicy, PromotionAction
 
 __all__ = [
     "wilson_interval",
@@ -17,4 +18,7 @@ __all__ = [
     "EvalCase",
     "Generation",
     "LineageRegistry",
+    "AutoDecision",
+    "AutoPromotionPolicy",
+    "PromotionAction",
 ]

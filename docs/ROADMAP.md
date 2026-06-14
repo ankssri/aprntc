@@ -55,7 +55,8 @@ Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE]
 - **(0) DONE-NEXT:** wire 👍/👎 into the Trajectories detail view (thumbs currently only on "Try an agent").
 - **A1 DONE** (external collectors). **A2 DONE** (online shadow/canary). **A3 DONE** (learned fusion).
   User tested the BytePlus agent (21 eps / 9 thumbs); A3 built + proven, activates once judge+anchor
-  co-occur on episodes (current data has anchors only). **→ A4 next** (auto-promotion).
+  co-occur on episodes (current data has anchors only). **A4 DONE** (auto-promotion, default-off,
+  hard-gated). **→ A6 next** (multi-agent fleets). A5 still deferred (closed-source — discuss first).
 - **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
   agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
 - **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
@@ -104,8 +105,14 @@ Ordered by recommended sequence:
    the same episode. Current real data (21 eps, 9 thumbs) has anchors but NO judge labels (the judge
    only runs in the gate/shadow, not on individual Try-an-agent runs) → weights stay at priors until
    shadow/gate runs accumulate judge+anchor pairs. A3 falls back to priors safely until then.
-5. **A4 — Auto-promotion (low-risk diffs)** — promote without human approval once judge↔outcome trust is
-   established. The payoff of the autonomous-loop thesis. (User decision: human now, auto later.)
+5. **A4 — Auto-promotion (low-risk diffs)** ✅ DONE (2026-06-14). `promote/auto.py`
+   `AutoPromotionPolicy.decide(gate, diff, trust)` → AUTO_PROMOTE / HUMAN_REVIEW / REJECT.
+   **Default-OFF (opt-in)** per "human now, auto later". Auto fires ONLY if ALL clear: enabled +
+   gate.passed + MARGIN above the bar (win≥60%, CI-low>55%, loss<5% — stricter than the 55/50/10 bar) +
+   zero regression/safety (hard) + low-risk diff (small + additive) + established trust (≥0.80, e.g. A3
+   judge↔outcome agreement). Anything short → HUMAN_REVIEW (never silent reject); failed gate → REJECT.
+   Every blocked guardrail is reported for audit. +11 tests (222 total). Wiring into the live promote
+   flow / dashboard is a small follow-up (policy is the decision core).
 6. **A5 — Fine-tuning (PEFT/LoRA)** — Phase-2: compress validated lessons into model weights when prompt
    length/latency hits a ceiling. Sits ON TOP of memory+playbook, never replaces it.
 7. **A6 — Multi-agent fleets / cross-agent lesson sharing** — one apprentice across many parent agents;
