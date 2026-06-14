@@ -45,6 +45,48 @@ aprntc swaps the parent's **playbook** (system prompt + retrieved-lesson config)
 infra — and it's instantly reversible. Everything else is read-only observation. Worst case if aprntc
 is wrong/down: "no improvement happened" — never "production broke."
 
+## What "the child" actually is (and what gets promoted)
+An agent = a **fixed engine** (LLM + retrieval + tools + loop) **+ a Playbook** (config artifact:
+system_prompt + directives + exemplars + watch-out lessons). Parent and child share the SAME engine —
+the ONLY difference is the Playbook. So:
+- **The "child" is not a separate program** — it's the same agent running a candidate **Playbook G(n+1)**
+  distilled from the parent's good/bad trajectories. (See `distill/playbook.py`, `as_child()`.)
+- **The child "improves"** = the distiller edits its Playbook with lessons mined from where the parent
+  succeeded/failed (directives + exemplars from wins, failure-patterns from losses).
+- **Promotion = swap the Playbook** (point the live agent at G1 instead of G0). No model change, no
+  redeploy. Rollback = point back to G0. Each Playbook is content-addressed (`hash`) → versioned +
+  revertible. "Child becomes the new parent" = G1 is now live; the next child distills from G1.
+- This is the Phase-1 mechanism (ADR 0006): playbook distillation, NOT fine-tuning — which is exactly
+  why it works on CLOSED-source LLMs (Seed-2.0/DeepSeek): you can't change their weights, but you can
+  change how they're prompted + what lessons/examples they're given. (Fine-tuning = A5, open-weights only.)
+- Ceiling (honest): a Playbook makes the agent reliably APPLY lessons; it can't teach the base model
+  capabilities it lacks. Two delivery channels for lessons: baked into the promoted Playbook (static) +
+  retrieved from VikingDB memory per-query (dynamic).
+
+## Connecting an EXTERNAL agent (e.g. someone's LangChain agent) — the integration contract
+In the demo aprntc OWNS the agent + Playbook (in-process function calls). For an external agent aprntc
+owns neither, so the Playbook becomes a **contract**, with an inbound and an outbound half:
+
+**Inbound (observe) — built (A1).** The agent's traffic flows INTO aprntc via a tap (egress proxy / OTel
+/ MCP). Read-only. This is how aprntc sees the parent's behavior without owning its code.
+
+**Outbound (control) — B-track, NOT built yet.** The improved Playbook flows OUT to the agent. aprntc
+can't push into the customer's process, so the model inverts: **the agent PULLS its config from aprntc.**
+
+Decisions locked (2026-06-14):
+- **Initial G0 = register, fallback to infer.** Customer registers their current system prompt/key
+  instructions as G0 (aprntc needs only the prompt text, not code); if they don't, aprntc infers an
+  approximate G0 from the system prompt the tap observes in traffic.
+- **Delivery = Config-fetch API (primary).** aprntc serves the active Playbook; the customer adds a
+  one-line fetch, e.g. `system_prompt = aprntc.get_active_playbook("agent-id")`. Promotion updates what
+  aprntc serves; the agent picks up the new playbook. Rollback = aprntc serves G0 again. This makes the
+  cross-process swap behave exactly like the demo's in-process swap — the fetch indirection IS the bridge.
+  (PR/artifact + webhook delivery are possible later alternatives; config-fetch is the default.)
+
+**Symmetry:** A1 tap = data flows IN (observation); Config-fetch API = playbook flows OUT (control).
+Together = the full external integration. The outbound API + auth/multi-tenancy (per-customer playbook
+isolation) are **B-track** (B1/B2) — design recorded here so it's not lost.
+
 ## How this maps to the roadmap (docs/ROADMAP.md)
 - **A1 (external collectors)** = build the proxy/OTel/MCP tap → the production CONNECTION mechanism so a
   real external parent can attach without being one of our demo agents.

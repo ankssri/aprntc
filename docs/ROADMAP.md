@@ -121,6 +121,12 @@ Ordered by recommended sequence:
 ## (B) Productionization (not planned features — deployment/robustness)
 Real work to run aprntc as a product, but never part of the planning-session feature roadmap:
 
+- **B0 — Playbook registry + Config-fetch API (the OUTBOUND integration; see PRODUCTION.md).** The
+  missing half of external integration: let an external agent (a) register its initial system prompt as
+  G0 (fallback: infer from observed traffic), and (b) fetch its active Playbook via a one-line SDK call
+  (`get_active_playbook(agent_id)`) so promotion/rollback = a config swap the agent pulls. Decisions
+  locked 2026-06-14: config-fetch primary; register-with-infer-fallback for G0. Needs auth/multi-tenancy
+  (B2) for per-customer playbook isolation. This is what makes promotion work for a non-aprntc agent.
 - **B1 — Deploy** — containerize the FastAPI backend; serve the built React frontend (static) behind it
   or a CDN; env/secrets management; a hosted VikingDB/Postgres.
 - **B2 — Auth + multi-tenancy** — login, per-customer isolation of trajectories/lessons/lineage.
