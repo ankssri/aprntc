@@ -283,6 +283,13 @@ docker-compose.yml (.env + /data volume), .dockerignore, docs/DEPLOY.md. `_mount
 live: uvicorn serves /, /trajectories (SPA), /api/health, /assets/* on one port. Docker build itself
 unrun (Docker not installed here). Remaining B: B3 ops (scheduler/Postgres/observability), B4 UI polish.
 
+## B3 — Robustness/ops ✅ DONE (2026-06-14)
+`src/aprntc/ops/`: `Scheduler` (interval jobs = the nightly distill cadence; bg-thread or cron
+`run_due()`; fail-isolated; injectable clock), `with_retry` (bounded backoff for flaky ModelArk/VikingDB),
+`OpsMetrics`/`METRICS` (thread-safe counters; `/api/ops` health snapshot). `scripts/run_scheduler.py`
+runs the live nightly distill loop. +12 tests (272). Remaining: Postgres/multi-worker at scale (noted
+in DEPLOY.md), rate/cost controls. **Only B4 (UI polish) left in the planned roadmap.**
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

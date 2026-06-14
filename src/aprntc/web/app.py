@@ -214,6 +214,18 @@ def create_app(state: AppState | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok", "service": "aprntc"}
 
+    @app.get("/api/ops")
+    def ops() -> dict[str, Any]:
+        """Self-observability snapshot (B3): job runs, counters, last errors."""
+        from aprntc.ops import METRICS
+        snap = METRICS.snapshot()
+        # surface store size if available (cheap health signal)
+        try:
+            snap["episodes"] = state.store.count() if state.store is not None else None
+        except Exception:
+            snap["episodes"] = None
+        return snap
+
     # -- review / gate ---------------------------------------------------
     @app.get("/api/review")
     def get_review() -> dict[str, Any]:

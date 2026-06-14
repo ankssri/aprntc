@@ -163,8 +163,17 @@ Real work to run aprntc as a product, but never part of the planning-session fea
   **Follow-up:** apply the same tenant scoping to the OTHER endpoints (trajectories/lineage/lessons/
   feedback) — currently those still use the shared dev state; B0 playbook endpoints are the
   externally-critical ones and are isolated. Dashboard login UI is part of B4.
-- **B3 — Robustness/ops** — background job scheduler for nightly distillation, retries, observability of
-  aprntc itself, rate/cost controls, Postgres swap for the SQLite trajectory store at scale.
+- **B3 — Robustness/ops** ✅ DONE (2026-06-14). `src/aprntc/ops/`:
+  - `scheduler.py` `Scheduler` — runs jobs on an interval (the nightly distill cadence the design
+    needed but never fired), background thread OR cron-style `run_due()`, **fail-isolated** (one job's
+    crash never kills the loop; recorded to metrics), injectable clock (tests need no real time).
+  - `retry.py` `with_retry` — bounded retry + exponential backoff (capped) for flaky ModelArk/VikingDB
+    calls; only retries listed exceptions; injectable sleep.
+  - `metrics.py` `OpsMetrics`/`METRICS` — thread-safe counters + last-event/error; `/api/ops` endpoint
+    exposes a self-health snapshot.
+  - `scripts/run_scheduler.py` — runs the live nightly-distill loop (retry-wrapped).
+  - +12 tests (272 total). Remaining at-scale items (not blocking): Postgres swap for SQLite +
+    multi-worker (noted in DEPLOY.md); rate/cost controls.
 - **B4 — UI polish** — remaining screen edge cases, loading/error states, real-time updates.
 
 ## What's done (for reference)
