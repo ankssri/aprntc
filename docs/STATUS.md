@@ -199,6 +199,17 @@ BytePlus infra, with the human-gated acceptance bar protecting against bad promo
 
 ### Next: the deliverable below (design doc) — UPDATE it to reflect Stage 7 complete.
 
+## BytePlus agent in dashboard + user feedback (2026-06-14)
+- **BytePlus support agent in "Try an agent":** now the default agent; runs live (rich config,
+  doc-grounded, cites sources). Backend runner extended (`agent_id="byteplus"`, KB cached); listed in
+  `/api/agents`.
+- **👍/👎 user feedback:** new `POST /api/feedback` attaches a `USER_EXPLICIT` label (up=1.0, down=0.0)
+  — explicit feedback OUTRANKS the judge in fusion (ADR 0006), so it's real learning signal. UI: thumbs
+  buttons on each answer + "Sources cited" panel.
+- **Verified live in browser:** ran "How do I enable deep reasoning in ModelArk?" → correct doc-grounded
+  answer (reward 67%); clicked 👍 → persisted as USER_EXPLICIT(1.0), fused reward moved to 0.79. +4 web
+  tests (169 total).
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

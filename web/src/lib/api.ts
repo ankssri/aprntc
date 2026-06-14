@@ -98,6 +98,8 @@ export const api = {
   agents: () => get<{ available: boolean; agents: AgentInfo[] }>("/api/agents"),
   runAgent: (agent_id: string, task: string) =>
     post<AgentRunResult>("/api/agents/run", { agent_id, task }),
+  feedback: (episode_id: string, vote: "up" | "down") =>
+    post<{ ok: boolean; fused_reward: number | null }>("/api/feedback", { episode_id, vote }),
 };
 
 export type AgentInfo = {
@@ -118,8 +120,9 @@ export type AgentRunResult = {
   answer: string;
   episode_id: string;
   agent_id: string;
-  reward: number;
+  reward: number | null;
   reward_rationale: string | null;
+  cited: string[];
   reasoning: string | null;
   steps: AgentStep[];
 };

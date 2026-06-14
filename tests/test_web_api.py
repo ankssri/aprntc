@@ -168,7 +168,7 @@ def test_list_agents(tmp_path):
     body = _client(tmp_path, agent_run=lambda a, t: {}).get("/api/agents").json()
     assert body["available"] is True
     ids = {a["id"] for a in body["agents"]}
-    assert ids == {"support", "rag"}
+    assert ids == {"byteplus", "support", "rag"}
     assert all(a["examples"] for a in body["agents"])
 
 
@@ -187,10 +187,45 @@ def test_run_agent_invokes_runner(tmp_path):
     assert seen["call"] == ("support", "refund?")
 
 
+def test_list_agents_includes_byteplus(tmp_path):
+    body = _client(tmp_path, agent_run=lambda a, t: {}).get("/api/agents").json()
+    bp = next((a for a in body["agents"] if a["id"] == "byteplus"), None)
+    assert bp is not None and "ModelArk" in bp["description"]
+    assert bp["examples"]
+
+
 def test_run_agent_validation(tmp_path):
     c = _client(tmp_path, agent_run=lambda a, t: {})
     assert c.post("/api/agents/run", json={"agent_id": "bad", "task": "x"}).status_code == 400
-    assert c.post("/api/agents/run", json={"agent_id": "support", "task": "  "}).status_code == 400
+    assert c.post("/api/agents/run", json={"agent_id": "byteplus", "task": "  "}).status_code == 400
+    # byteplus is now a valid id (would 503 only because no runtime, not 400)
+    assert c.post("/api/agents/run", json={"agent_id": "byteplus", "task": "q"}).status_code == 200
+
+
+# ─── user feedback (thumbs) ──────────────────────────────────────────────────
+
+def test_feedback_attaches_explicit_label(tmp_path, store):
+    ep = Episode(task_input="q", collector=Collector.SDK_WRAPPER, final_output="a")
+    eid = store.put_episode(ep, scrub=False)
+    c = _client(tmp_path, store=store)
+    r = c.post("/api/feedback", json={"episode_id": eid, "vote": "up"})
+    assert r.status_code == 200 and r.json()["ok"] is True
+    labels = store.labels_for(eid)
+    assert any(l.source is LabelSource.USER_EXPLICIT and l.score == 1.0 for l in labels)
+
+
+def test_feedback_down_is_zero(tmp_path, store):
+    ep = Episode(task_input="q", collector=Collector.SDK_WRAPPER, final_output="a")
+    eid = store.put_episode(ep, scrub=False)
+    c = _client(tmp_path, store=store)
+    c.post("/api/feedback", json={"episode_id": eid, "vote": "down"})
+    assert any(l.score == 0.0 for l in store.labels_for(eid))
+
+
+def test_feedback_validation(tmp_path, store):
+    c = _client(tmp_path, store=store)
+    assert c.post("/api/feedback", json={"episode_id": "x", "vote": "maybe"}).status_code == 400
+    assert c.post("/api/feedback", json={"episode_id": "nope", "vote": "up"}).status_code == 404
 
 
 def test_run_agent_503_without_runtime(tmp_path):

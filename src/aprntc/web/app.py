@@ -125,6 +125,15 @@ def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any
     except Exception:
         return None
 
+    # Build the BytePlus knowledge base lazily once (it's ~641 chunks; reused across runs).
+    _kb_cache: dict[str, Any] = {}
+
+    def _byteplus_kb() -> Any:
+        if "kb" not in _kb_cache:
+            from aprntc.demos.byteplus import build_kb
+            _kb_cache["kb"] = build_kb()
+        return _kb_cache["kb"]
+
     def run(agent_id: str, task: str) -> dict[str, Any]:
         from aprntc.demos.agents import RagAgent, SupportAgent
         from aprntc.demos.corpus import GOLD
@@ -133,7 +142,17 @@ def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any
         from aprntc.trajectory import Collector
 
         tap = AgentTap(store.put_episode, collector=Collector.SDK_WRAPPER)
-        if agent_id == "support":
+        cited: list[str] = []
+
+        if agent_id == "byteplus":
+            from aprntc.demos.byteplus import ByteplusSupportAgent, GOLD as BP_GOLD, byteplus_outcome
+            agent = ByteplusSupportAgent(client, tap, _byteplus_kb(), model=model, rich=True)
+            res = agent.run(task, generation_id="try")
+            ep = store.get_episode(res.episode_id)
+            cited = res.cited
+            gold = next((g for g in BP_GOLD if g.question.lower() == task.lower()), None)
+            label = byteplus_outcome(ep, gold) if gold else None
+        elif agent_id == "support":
             agent = SupportAgent(client, tap, model=model)
             res = agent.run(task, generation_id="try")
             ep = store.get_episode(res.episode_id)
@@ -142,10 +161,11 @@ def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any
             agent = RagAgent(client, tap, model=model)
             res = agent.run(task, generation_id="try")
             ep = store.get_episode(res.episode_id)
-            # score against a gold item if the task matches one, else groundedness-only
             gold = next((g for g in GOLD if g.question.lower() == task.lower()), None)
             label = rag_outcome(ep, gold) if gold else support_outcome(ep)
-        store.attach_label(res.episode_id, label)
+
+        if label is not None:
+            store.attach_label(res.episode_id, label)
 
         steps = [
             {
@@ -161,8 +181,9 @@ def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any
             "answer": res.answer,
             "episode_id": res.episode_id,
             "agent_id": agent_id,
-            "reward": label.score,
-            "reward_rationale": label.rationale,
+            "reward": label.score if label is not None else None,
+            "reward_rationale": label.rationale if label is not None else None,
+            "cited": cited,
             "reasoning": next((t.reasoning_content for t in ep.turns if t.reasoning_content), None),
             "steps": steps,
         }
@@ -279,6 +300,17 @@ def create_app(state: AppState | None = None) -> FastAPI:
             "available": state.agent_run is not None,
             "agents": [
                 {
+                    "id": "byteplus",
+                    "name": "BytePlus support",
+                    "description": "Answers BytePlus AI-stack questions (ModelArk, VikingDB, image/"
+                                   "video/speech, files) grounded in the real docs, with citations.",
+                    "examples": [
+                        "How do I enable deep reasoning in ModelArk?",
+                        "Which VikingDB index types are supported?",
+                        "How do I pass an image to the model?",
+                    ],
+                },
+                {
                     "id": "support",
                     "name": "Support chat",
                     "description": "Customer-support agent. Tools: KB lookup, order status.",
@@ -301,12 +333,14 @@ def create_app(state: AppState | None = None) -> FastAPI:
             ],
         }
 
+    _AGENT_IDS = ("byteplus", "support", "rag")
+
     @app.post("/api/agents/run")
     def run_agent(body: dict[str, Any]) -> dict[str, Any]:
         agent_id = body.get("agent_id")
         task = (body.get("task") or "").strip()
-        if agent_id not in ("support", "rag"):
-            raise HTTPException(status_code=400, detail="agent_id must be 'support' or 'rag'")
+        if agent_id not in _AGENT_IDS:
+            raise HTTPException(status_code=400, detail=f"agent_id must be one of {_AGENT_IDS}")
         if not task:
             raise HTTPException(status_code=400, detail="task is required")
         if state.agent_run is None:
@@ -315,6 +349,34 @@ def create_app(state: AppState | None = None) -> FastAPI:
             return state.agent_run(agent_id, task)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"agent run failed: {e}")
+
+    @app.post("/api/feedback")
+    def feedback(body: dict[str, Any]) -> dict[str, Any]:
+        """Record a user's 👍/👎 on an answer as an EXPLICIT-feedback label.
+
+        Explicit feedback outranks the judge in fusion (ADR 0006), so this is real
+        learning signal — not just UI. 'up' → score 1.0, 'down' → 0.0.
+        """
+        from aprntc.trajectory import Label, LabelSource
+
+        episode_id = body.get("episode_id")
+        vote = body.get("vote")
+        if vote not in ("up", "down"):
+            raise HTTPException(status_code=400, detail="vote must be 'up' or 'down'")
+        if state.store is None:
+            raise HTTPException(status_code=503, detail="no store configured")
+        try:
+            state.store.attach_label(
+                episode_id,
+                Label(source=LabelSource.USER_EXPLICIT,
+                      score=1.0 if vote == "up" else 0.0,
+                      rubric_dim="thumbs", confidence=0.8,
+                      rationale=f"user {vote}vote"),
+            )
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"no episode {episode_id}")
+        fused = state.store.fused_reward(episode_id)
+        return {"ok": True, "fused_reward": fused[0] if fused else None}
 
     return app
 

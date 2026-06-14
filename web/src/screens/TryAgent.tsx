@@ -2,11 +2,18 @@ import { useState } from "react";
 import { api, AgentInfo, AgentRunResult } from "../lib/api";
 import { useAsync, pct } from "../lib/hooks";
 import { Badge, Button, Card, Empty, PageHeader, Spinner } from "../components/ui";
-import { IconBolt, IconPlay, IconSparkle } from "../components/icons";
+import {
+  IconBolt,
+  IconPlay,
+  IconQuote,
+  IconSparkle,
+  IconThumbDown,
+  IconThumbUp,
+} from "../components/icons";
 
 export default function TryAgent() {
   const { data, loading, error } = useAsync(() => api.agents(), []);
-  const [agentId, setAgentId] = useState("support");
+  const [agentId, setAgentId] = useState("byteplus");
   const [task, setTask] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AgentRunResult | null>(null);
@@ -117,18 +124,78 @@ function rewardTone(r: number): "success" | "warning" | "danger" {
 }
 
 function Result({ r }: { r: AgentRunResult }) {
+  const [vote, setVote] = useState<"up" | "down" | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const sendVote = async (v: "up" | "down") => {
+    if (sending || vote === v) return;
+    setSending(true);
+    try {
+      await api.feedback(r.episode_id, v);
+      setVote(v);
+    } catch {
+      /* feedback is best-effort; ignore UI errors */
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-xs font-medium text-muted">Answer</span>
-          <Badge tone={rewardTone(r.reward)}>reward {pct(r.reward)}</Badge>
+          {r.reward != null && <Badge tone={rewardTone(r.reward)}>reward {pct(r.reward)}</Badge>}
         </div>
         <p className="text-sm text-fg">{r.answer}</p>
         {r.reward_rationale && (
           <p className="mt-2 text-[11px] text-faint">scored: {r.reward_rationale}</p>
         )}
+
+        {/* user feedback — explicit signal that outranks the judge in fusion */}
+        <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+          <span className="text-[11px] text-faint">Was this helpful?</span>
+          <button
+            onClick={() => sendVote("up")}
+            disabled={sending}
+            aria-label="thumbs up"
+            className={`rounded-lg border p-1.5 transition disabled:opacity-50 ${
+              vote === "up"
+                ? "border-success bg-success/10 text-success"
+                : "border-border text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
+          >
+            <IconThumbUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => sendVote("down")}
+            disabled={sending}
+            aria-label="thumbs down"
+            className={`rounded-lg border p-1.5 transition disabled:opacity-50 ${
+              vote === "down"
+                ? "border-danger bg-danger/10 text-danger"
+                : "border-border text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
+          >
+            <IconThumbDown className="h-4 w-4" />
+          </button>
+          {vote && <span className="text-[11px] text-faint">thanks — feedback recorded</span>}
+        </div>
       </Card>
+
+      {r.cited.length > 0 && (
+        <div>
+          <div className="mb-2 text-sm font-medium text-muted">Sources cited</div>
+          <Card className="divide-y divide-border">
+            {r.cited.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                <IconQuote className="h-4 w-4 shrink-0 text-faint" />
+                <span className="text-fg">{c}</span>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
 
       {r.steps.length > 0 && (
         <div>
