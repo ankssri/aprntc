@@ -226,6 +226,16 @@ Three collectors behind the AgentTap core, all normalize → Episode, all unit-t
 - shared `tap/normalize.py`; `tap/README.md`; +19 tests (188 total).
 - Live-verify deferred (each needs its external service); mapping logic proven. → A2 next.
 
+## A2 — Online shadow / A-B canary ✅ DONE (2026-06-14)
+`src/aprntc/online/`: `ShadowRunner` (shadow child vs parent on live requests, fail-open + sampled +
+position-debiased, live win-rate/CI, `ready_to_promote()`); `CanaryController` (staged rollout
+5%→25%→50%→100%, deterministic hash routing, auto-rollback on degradation). +11 tests (199 total).
+Live-verify needs real traffic (wire at deploy).
+
+**⏸ AT THE PAUSE (user sequencing):** A0/A0b/(0)/A1/A2 done. Next is A3 (learned fusion weights) — but
+user will first do **real testing with the BytePlus support agent** to generate real data. Do NOT start
+A3 until the user signals. A5 still deferred (closed-source LLMs; discuss first).
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

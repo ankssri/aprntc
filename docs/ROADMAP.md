@@ -53,7 +53,8 @@ This mirrors A0's insight: bigger, more decisive wins need a parent with bigger 
 ## Current focus & locked sequencing (user, 2026-06-14)
 Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE] → A3 → A4 → A6 → then (B)**.
 - **(0) DONE-NEXT:** wire 👍/👎 into the Trajectories detail view (thumbs currently only on "Try an agent").
-- **A1 DONE** (external collectors). **→ A2 next** (online shadow/canary).
+- **A1 DONE** (external collectors). **A2 DONE** (online shadow/canary).
+  **⏸ NOW AT THE PAUSE** — user does real BytePlus-agent testing to generate real data before A3.
 - **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
   agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
 - **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
@@ -83,9 +84,15 @@ Ordered by recommended sequence:
    - Shared `tap/normalize.py`; +19 tests (188 total).
    - **Live-verify deferred:** each needs its external service (LiteLLM gateway / OTel Collector / MCP
      gateway) to exercise end-to-end — wire when a real external parent is connected. Mapping logic proven.
-3. **A2 — Online shadow / A-B canary** — run the child on LIVE production traffic in parallel (shadow:
-   outputs discarded, judged pairwise vs parent) or post-promotion gradual rollout (canary) with
-   auto-rollback. Turns "proven on a held-out set" into "proven on real traffic." The marquee v1 feature.
+3. **A2 — Online shadow / A-B canary** ✅ DONE (2026-06-14). `src/aprntc/online/`:
+   - `shadow.py` `ShadowRunner` — on each live request, shadow the child vs the parent (output
+     discarded), judge pairwise, accumulate live win-rate + Wilson CI; async + **fail-open** (shadow
+     never affects the user's response), sampled (`sample_rate`), position-debiased; `ready_to_promote()`
+     applies the acceptance bar to live stats.
+   - `canary.py` `CanaryController` — post-promotion staged rollout (5%→25%→50%→100%); deterministic
+     hash routing (stable per user, no `random`); push-based metric feed; **auto-rollback** when the
+     child's mean reward falls below the parent's baseline by `degrade_margin`.
+   - +11 tests (199 total). Live-verify needs real traffic (that's the point) — wire at deploy.
 4. **A3 — Learned fusion weights + judge calibration** — auto-learn how much to trust each signal
    (outcome/explicit/judge) from historical agreement with the anchor; auto-down-weight a biased judge.
    Needs accumulated data.
