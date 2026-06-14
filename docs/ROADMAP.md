@@ -56,7 +56,8 @@ Build order: **(0) Trajectories-detail thumbs feedback → A1 → A2 → [PAUSE]
 - **A1 DONE** (external collectors). **A2 DONE** (online shadow/canary). **A3 DONE** (learned fusion).
   User tested the BytePlus agent (21 eps / 9 thumbs); A3 built + proven, activates once judge+anchor
   co-occur on episodes (current data has anchors only). **A4 DONE** (auto-promotion, default-off,
-  hard-gated). **→ A6 next** (multi-agent fleets). A5 still deferred (closed-source — discuss first).
+  hard-gated). **A6 DONE** (multi-agent fleets). **A-TRACK COMPLETE except A5** (deferred, closed-source
+  — user to decide drop vs park). **→ (B) productionization next** (B0 Playbook/Config-fetch API first).
 - **⏸ BEFORE A3:** STOP and tell the user — they will do **real testing with the "BytePlus support"
   agent** to generate real data first (A3 = learned fusion weights needs accumulated real data).
 - **A4** after A3. **A5 SKIPPED for now** (see note). **A6** after A4.
@@ -115,8 +116,14 @@ Ordered by recommended sequence:
    flow / dashboard is a small follow-up (policy is the decision core).
 6. **A5 — Fine-tuning (PEFT/LoRA)** — Phase-2: compress validated lessons into model weights when prompt
    length/latency hits a ceiling. Sits ON TOP of memory+playbook, never replaces it.
-7. **A6 — Multi-agent fleets / cross-agent lesson sharing** — one apprentice across many parent agents;
-   share lessons between them.
+7. **A6 — Multi-agent fleets / cross-agent lesson sharing** ✅ DONE (2026-06-14). `src/aprntc/fleet/`:
+   - `registry.py` `Fleet` + `AgentRef` — many parent agents under one apprentice, each with its OWN
+     lineage (per-agent generations/playbook path); `by_domain()` scopes peers. JSON-persisted.
+   - `sharing.py` `share_lessons()`/`shareable_lessons()` — offer one agent's lessons to another, GATED:
+     reward gate (only good lessons), type gate (directives/failure-patterns/routing; NOT source-specific
+     exemplars), dedup by stable content id, and `shared_from` provenance tagging. Domain scoping via
+     `Fleet.by_domain`.
+   - +9 tests (231 total). Wiring into the dashboard/distillation flow is a follow-up.
 
 ## Known issues / revisit later
 - **BytePlus agent RAG quality** (user, 2026-06-14): retrieval+answers still not great after the KB

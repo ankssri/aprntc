@@ -252,6 +252,14 @@ CI>55/loss<5) + zero regression/safety + low-risk additive diff + trust≥0.80. 
 silent reject); failed gate → REJECT; reports every blocked guardrail. +11 tests (222). → A6 next
 (A5 deferred: closed-source LLMs, discuss first). Live-flow/dashboard wiring is a small follow-up.
 
+## A6 — Multi-agent fleets ✅ DONE (2026-06-14)
+`src/aprntc/fleet/`: `Fleet`+`AgentRef` (many parents, each own lineage; `by_domain` scoping,
+JSON-persisted) + `share_lessons`/`shareable_lessons` (offer one agent's lessons to another — reward
+gate, type gate [no source-specific exemplars], dedup by content id, `shared_from` provenance). +9 tests
+(231 total). **A-TRACK COMPLETE except A5** (fine-tuning deferred — closed-source LLMs, user to decide
+drop vs park). Next: (B) productionization, starting with B0 (Playbook registry + Config-fetch API).
+Follow-ups noted: wire A4/A6 + A1/A2 into the live flow/dashboard during B-track.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,
