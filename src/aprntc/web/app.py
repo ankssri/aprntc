@@ -43,6 +43,11 @@ class AppState:
     # require an API key and serve each tenant's ISOLATED registry. When None, the API
     # runs single-tenant/dev mode using `playbooks` above (existing behavior).
     tenant_resolver: Any | None = None
+    # B4: human dashboard auth (Google sign-in). When all set, /api/auth/* is live and
+    # /api/auth/me reflects the logged-in user. When None, dashboard runs open (dev).
+    auth_provider: Any | None = None     # OAuthProvider (Google or Mock)
+    session_signer: Any | None = None    # SessionSigner
+    users: Any | None = None             # UserStore
 
     def lineage(self) -> LineageRegistry:
         return LineageRegistry(self.lineage_path)
@@ -72,6 +77,7 @@ class AppState:
         memory_search = _build_memory_search(load_dotenv=load_dotenv)
         agent_run = _build_agent_run(store, load_dotenv=load_dotenv)
         from aprntc.serving import PlaybookRegistry
+        auth_provider, session_signer, users = _build_auth(load_dotenv=load_dotenv)
         return cls(
             lineage_path=lineage_path,
             bundle_path=bundle_path,
@@ -79,6 +85,9 @@ class AppState:
             memory_search=memory_search,
             agent_run=agent_run,
             playbooks=PlaybookRegistry("playbooks.json"),
+            auth_provider=auth_provider,
+            session_signer=session_signer,
+            users=users,
         )
 
 
@@ -197,6 +206,32 @@ def _build_agent_run(store: TrajectoryStore, *, load_dotenv: bool = True) -> Any
         }
 
     return run
+
+
+def _build_auth(*, load_dotenv: bool = True):
+    """Wire human dashboard auth (Google + session) from env, or (None, None, None).
+
+    Returns (provider, signer, users). Degrades gracefully: if GOOGLE_* /
+    APRNTC_SESSION_SECRET aren't set, the dashboard runs open (dev mode).
+    """
+    try:
+        from aprntc.config import load_dotenv as _ld
+        env = _ld(".env") if load_dotenv else {}
+        import os
+        getenv = lambda k: os.environ.get(k) or env.get(k)  # noqa: E731
+
+        secret = getenv("APRNTC_SESSION_SECRET")
+        cid = getenv("GOOGLE_CLIENT_ID")
+        csec = getenv("GOOGLE_CLIENT_SECRET")
+        redirect = getenv("GOOGLE_REDIRECT_URI")
+        if not (secret and cid and csec and redirect):
+            return None, None, None
+
+        from aprntc.auth import GoogleProvider, SessionSigner, UserStore
+        provider = GoogleProvider(client_id=cid, client_secret=csec, redirect_uri=redirect)
+        return provider, SessionSigner(secret), UserStore("users.json")
+    except Exception:
+        return None, None, None
 
 
 def create_app(state: AppState | None = None) -> FastAPI:
@@ -451,6 +486,70 @@ def create_app(state: AppState | None = None) -> FastAPI:
             return registry.rollback(agent_id).to_dict()
         except (KeyError, RuntimeError) as e:
             raise HTTPException(status_code=409, detail=str(e))
+
+    # -- B4: human dashboard auth (Google sign-in) ----------------------------
+    _SESSION_COOKIE = "aprntc_session"
+
+    @app.get("/api/auth/config")
+    def auth_config() -> dict[str, Any]:
+        """Tells the frontend whether login is enabled (so it shows the button)."""
+        return {"enabled": state.auth_provider is not None,
+                "provider": getattr(state.auth_provider, "name", None)}
+
+    @app.get("/api/auth/login")
+    def auth_login() -> Any:
+        """Redirect the browser to the provider's consent screen."""
+        from fastapi.responses import RedirectResponse
+        if state.auth_provider is None:
+            raise HTTPException(status_code=503, detail="auth not configured")
+        # state param (CSRF) — minimal here; a nonce store can harden it later
+        url = state.auth_provider.authorize_url(state="aprntc")
+        return RedirectResponse(url)
+
+    @app.get("/api/auth/google/callback")
+    def auth_callback(code: str = "", state_param: str = "") -> Any:
+        """Google redirects here with a code; exchange it, set the session cookie."""
+        from fastapi.responses import RedirectResponse
+        if state.auth_provider is None or state.session_signer is None or state.users is None:
+            raise HTTPException(status_code=503, detail="auth not configured")
+        if not code:
+            raise HTTPException(status_code=400, detail="missing code")
+        try:
+            profile = state.auth_provider.exchange_code(code)
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"oauth exchange failed: {e}")
+        user, _ = state.users.upsert_from_oauth(
+            provider=profile.provider, sub=profile.sub, email=profile.email,
+            name=profile.name, picture=profile.picture)
+        token = state.session_signer.issue(user_id=user.user_id, tenant_id=user.tenant_id)
+        resp = RedirectResponse(url="/")   # back to the dashboard, now logged in
+        resp.set_cookie(_SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=7*24*3600)
+        return resp
+
+    @app.get("/api/auth/me")
+    def auth_me(request: Request) -> dict[str, Any]:
+        """Who is logged in (the frontend calls this on load)."""
+        if state.session_signer is None:
+            return {"authenticated": False, "auth_enabled": False}
+        from aprntc.auth import SessionError
+        try:
+            payload = state.session_signer.verify(request.cookies.get(_SESSION_COOKIE))
+        except SessionError:
+            return {"authenticated": False, "auth_enabled": True}
+        u = state.users.get(payload["uid"]) if state.users else None
+        return {
+            "authenticated": True, "auth_enabled": True,
+            "user_id": payload["uid"], "tenant_id": payload["tid"],
+            "email": getattr(u, "email", None), "name": getattr(u, "name", None),
+            "picture": getattr(u, "picture", None),
+        }
+
+    @app.post("/api/auth/logout")
+    def auth_logout() -> Any:
+        from fastapi.responses import JSONResponse
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie(_SESSION_COOKIE)
+        return resp
 
     # -- B1: serve the built React frontend (single-container deploy) ----------
     # Mounted LAST so /api/* routes win. Optional: only if a build dir exists, so

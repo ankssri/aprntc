@@ -290,6 +290,16 @@ unrun (Docker not installed here). Remaining B: B3 ops (scheduler/Postgres/obser
 runs the live nightly distill loop. +12 tests (272). Remaining: Postgres/multi-worker at scale (noted
 in DEPLOY.md), rate/cost controls. **Only B4 (UI polish) left in the planned roadmap.**
 
+## B4 (part 1) — Dashboard auth: Google sign-in (backend) ✅ DONE (2026-06-14)
+HUMAN login for the console (distinct from B2 machine API keys). `src/aprntc/auth/`:
+`SessionSigner` (HMAC signed cookie sessions, stdlib), `UserStore` (one user = one tenant mapping),
+pluggable `OAuthProvider` — `GoogleProvider` (live OIDC) + `MockProvider` (offline tests). Web API:
+`/api/auth/config|login|google/callback|me|logout`; wired in `from_env` from GOOGLE_*/APRNTC_SESSION_SECRET
+(degrades to open dev mode if unset). +16 tests (288). Verified REAL .env wires google provider (correct
+endpoint/scope/redirect/client-id); live "click Sign in with Google" verification is the user's final step.
+Decisions: anyone-with-Google can sign in (External); one user = one tenant. User owns aprntc.com Workspace.
+**Next (B4 part 2):** frontend login screen + auth-aware shell.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,
