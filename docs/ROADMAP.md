@@ -114,8 +114,11 @@ Ordered by recommended sequence:
    judge↔outcome agreement). Anything short → HUMAN_REVIEW (never silent reject); failed gate → REJECT.
    Every blocked guardrail is reported for audit. +11 tests (222 total). Wiring into the live promote
    flow / dashboard is a small follow-up (policy is the decision core).
-6. **A5 — Fine-tuning (PEFT/LoRA)** — Phase-2: compress validated lessons into model weights when prompt
-   length/latency hits a ceiling. Sits ON TOP of memory+playbook, never replaces it.
+6. **A5 — Fine-tuning (PEFT/LoRA)** ⏸ PARKED (user decision 2026-06-14): **future / open-weight models
+   ONLY.** NOT applicable to the current closed-source stack (Seed-2.0-pro, DeepSeek-V4-pro via ModelArk
+   — weights can't be changed). Phase-1 playbook+memory already does the job without it. Revisit ONLY if
+   an open-weight model is adopted AND prompt-context hits a ceiling; then PEFT compresses validated
+   lessons into weights ON TOP of memory+playbook (never replaces them). No work now.
 7. **A6 — Multi-agent fleets / cross-agent lesson sharing** ✅ DONE (2026-06-14). `src/aprntc/fleet/`:
    - `registry.py` `Fleet` + `AgentRef` — many parent agents under one apprentice, each with its OWN
      lineage (per-agent generations/playbook path); `by_domain()` scopes peers. JSON-persisted.
@@ -135,12 +138,13 @@ Ordered by recommended sequence:
 ## (B) Productionization (not planned features — deployment/robustness)
 Real work to run aprntc as a product, but never part of the planning-session feature roadmap:
 
-- **B0 — Playbook registry + Config-fetch API (the OUTBOUND integration; see PRODUCTION.md).** The
-  missing half of external integration: let an external agent (a) register its initial system prompt as
-  G0 (fallback: infer from observed traffic), and (b) fetch its active Playbook via a one-line SDK call
-  (`get_active_playbook(agent_id)`) so promotion/rollback = a config swap the agent pulls. Decisions
-  locked 2026-06-14: config-fetch primary; register-with-infer-fallback for G0. Needs auth/multi-tenancy
-  (B2) for per-customer playbook isolation. This is what makes promotion work for a non-aprntc agent.
+- **B0 — Playbook registry + Config-fetch API** ✅ DONE (2026-06-14). `src/aprntc/serving/`:
+  `PlaybookRegistry` (per-agent versions + active pointer; `register` G0, `ensure_g0_from_traffic`
+  infer-fallback, `promote`/`set_active`/`rollback`, JSON-persisted) + REST endpoints
+  `POST /api/playbooks/{id}/register`, `GET /api/playbooks/{id}/active`, `POST .../rollback`. The
+  external agent does a one-line `GET .../active` fetch; promotion flips what's served. +12 tests
+  (243 total). **Verified live:** register G0 → fetch active returns the rendered prompt over HTTP.
+  Still needs auth/multi-tenancy (B2) for per-customer isolation; a tiny client SDK helper is optional.
 - **B1 — Deploy** — containerize the FastAPI backend; serve the built React frontend (static) behind it
   or a CDN; env/secrets management; a hosted VikingDB/Postgres.
 - **B2 — Auth + multi-tenancy** — login, per-customer isolation of trajectories/lessons/lineage.

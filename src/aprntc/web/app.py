@@ -37,6 +37,8 @@ class AppState:
     memory_search: Any | None = None
     # optional: a runner (agent_id, task) -> dict, for the "Try an agent" screen
     agent_run: Any | None = None
+    # B0: per-agent playbook registry external agents fetch from (lazy default in from_env)
+    playbooks: Any | None = None
 
     def lineage(self) -> LineageRegistry:
         return LineageRegistry(self.lineage_path)
@@ -65,12 +67,14 @@ class AppState:
         store = TrajectoryStore(db_path)
         memory_search = _build_memory_search(load_dotenv=load_dotenv)
         agent_run = _build_agent_run(store, load_dotenv=load_dotenv)
+        from aprntc.serving import PlaybookRegistry
         return cls(
             lineage_path=lineage_path,
             bundle_path=bundle_path,
             store=store,
             memory_search=memory_search,
             agent_run=agent_run,
+            playbooks=PlaybookRegistry("playbooks.json"),
         )
 
 
@@ -377,6 +381,46 @@ def create_app(state: AppState | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"no episode {episode_id}")
         fused = state.store.fused_reward(episode_id)
         return {"ok": True, "fused_reward": fused[0] if fused else None}
+
+    # -- B0: playbook serving (external agents fetch their active playbook) ----
+    @app.get("/api/playbooks/{agent_id}/active")
+    def get_active_playbook(agent_id: str) -> dict[str, Any]:
+        """The endpoint an EXTERNAL agent calls each request (or caches) to get its
+        active playbook — promotion/rollback just changes what this returns."""
+        if state.playbooks is None:
+            raise HTTPException(status_code=503, detail="playbook registry not configured")
+        try:
+            return state.playbooks.get_active(agent_id).to_dict()
+        except KeyError:
+            raise HTTPException(status_code=404,
+                                detail=f"no playbook registered for agent {agent_id!r}")
+
+    @app.post("/api/playbooks/{agent_id}/register")
+    def register_playbook(agent_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Register an external agent's initial G0 (its current system prompt)."""
+        from aprntc.distill.playbook import Playbook
+
+        if state.playbooks is None:
+            raise HTTPException(status_code=503, detail="playbook registry not configured")
+        sp = (body.get("system_prompt") or "").strip()
+        if not sp:
+            raise HTTPException(status_code=400, detail="system_prompt is required for G0")
+        pb = Playbook(
+            system_prompt=sp,
+            directives=list(body.get("directives", [])),
+            exemplars=list(body.get("exemplars", [])),
+            watch_out=list(body.get("watch_out", [])),
+        )
+        return state.playbooks.register(agent_id, pb).to_dict()
+
+    @app.post("/api/playbooks/{agent_id}/rollback")
+    def rollback_playbook(agent_id: str) -> dict[str, Any]:
+        if state.playbooks is None:
+            raise HTTPException(status_code=503, detail="playbook registry not configured")
+        try:
+            return state.playbooks.rollback(agent_id).to_dict()
+        except (KeyError, RuntimeError) as e:
+            raise HTTPException(status_code=409, detail=str(e))
 
     return app
 

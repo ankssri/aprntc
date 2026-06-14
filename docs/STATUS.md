@@ -260,6 +260,14 @@ gate, type gate [no source-specific exemplars], dedup by content id, `shared_fro
 drop vs park). Next: (B) productionization, starting with B0 (Playbook registry + Config-fetch API).
 Follow-ups noted: wire A4/A6 + A1/A2 into the live flow/dashboard during B-track.
 
+## B0 — Playbook registry + Config-fetch API ✅ DONE (2026-06-14)
+A5 PARKED (open-weight only; n/a to closed-source stack). `src/aprntc/serving/`: `PlaybookRegistry`
+(per-agent versions + active pointer; register G0 / infer-from-traffic fallback / promote / rollback,
+JSON-persisted) + REST: `POST/GET /api/playbooks/{id}/register|active|rollback`. The OUTBOUND half of
+external integration — an external agent fetches its active playbook one-line; promotion flips what's
+served (no redeploy). +12 tests (243). Verified live over HTTP (register G0 → fetch active). Remaining
+B: auth/multi-tenancy (B2), deploy (B1), ops (B3), UI polish (B4); optional tiny client SDK helper.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,
