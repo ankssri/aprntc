@@ -60,6 +60,36 @@ def test_kb_search_empty_query():
     assert _kb().search("", k=3) == []
 
 
+def test_tokens_keep_alphanumeric_short_terms():
+    # "3d", "v2" are meaningful (digit+letter) and must survive tokenization
+    toks = _tokens("3D model V2 api")
+    assert "3d" in toks and "v2" in toks
+
+
+def test_doc_label_splits_camelcase_and_digits():
+    from pathlib import Path
+    from aprntc.demos.byteplus.kb import _doc_label
+    # camelCase + acronym boundaries split into separate words ("Model"/"API" visible)
+    assert _doc_label(Path("SeedanceCreateAPI.md")) == "Seedance Create API"
+    label = _doc_label(Path("3DModelAPI.md"))
+    assert "Model" in label and "API" in label and "3" in label
+
+
+def test_kb_title_boost_ranks_distinctive_doc_first():
+    # a distinctive term in the doc NAME should win over a stray body mention
+    from aprntc.demos.byteplus.kb import Chunk, KnowledgeBase, _tokens
+    def ch(doc, section, text):
+        return Chunk("x", doc, section, text, _tokens(section + " " + text))
+    kb = KnowledgeBase([
+        # big doc that merely mentions "tokenizer" once in passing
+        ch("VikingDB Index", "Analyzer", "the analyzer has a tokenizer field for text search " * 3),
+        # the actual tokenizer doc (distinctive name)
+        ch("Tokenizer API", "Overview", "Count tokens for a prompt before sending."),
+    ])
+    hits = kb.search("tokenizer api", k=1)
+    assert hits[0].doc == "Tokenizer API"
+
+
 def test_kb_docs_listing():
     assert len(_kb().docs()) == 3
 

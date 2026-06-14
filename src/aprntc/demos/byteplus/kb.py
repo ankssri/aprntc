@@ -10,6 +10,7 @@ from — citation discipline is part of what the apprentice improves.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,10 +40,15 @@ def _clean(text: str) -> str:
 
 
 def _tokens(text: str) -> set[str]:
-    return {
-        w for w in re.findall(r"[a-z0-9_]+", text.lower())
-        if len(w) > 2 and w not in _STOP
-    }
+    out = set()
+    for w in re.findall(r"[a-z0-9_]+", text.lower()):
+        if w in _STOP:
+            continue
+        # keep words >2 chars, OR short alphanumerics that mix a digit + letter
+        # (e.g. "3d", "v2", "m3") — these are meaningful product/version terms
+        if len(w) > 2 or (any(ch.isdigit() for ch in w) and any(ch.isalpha() for ch in w)):
+            out.add(w)
+    return out
 
 
 @dataclass
@@ -52,14 +58,26 @@ class Chunk:
     section: str       # heading this passage sits under
     text: str
     _tokens: set[str]
+    _title_tokens: set[str] = None  # type: ignore[assignment]  # doc-name + section tokens
+
+    def __post_init__(self) -> None:
+        if self._title_tokens is None:
+            self._title_tokens = _tokens(f"{self.doc} {self.section}")
 
     def cite(self) -> str:
         return f"{self.doc} › {self.section}"
 
 
 def _doc_label(path: Path) -> str:
-    """Human-readable product area from a filename."""
+    """Human-readable product area from a filename.
+
+    Splits separators AND camelCase / letter-digit boundaries so e.g.
+    ``3DModelAPI`` → "3 D Model API" and ``SeedanceCreateAPI`` → "Seedance Create
+    API" — otherwise the whole filename collapses into one unsearchable token.
+    """
     name = path.stem.replace("_", " ").replace("-", " ")
+    name = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)  # camelCase / 3DModel -> 3D Model
+    name = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", name)  # DModel -> D Model (acronym+word)
     return re.sub(r"\s+", " ", name).strip()
 
 
@@ -112,10 +130,33 @@ def _split(text: str, max_chars: int) -> list[str]:
 
 
 class KnowledgeBase:
-    """In-memory chunk store with keyword retrieval."""
+    """In-memory chunk store with TF-IDF keyword retrieval.
+
+    Scoring sums the **IDF** of matched query terms (rare/distinctive terms weigh
+    far more than common ones like "api"/"model"), with length normalization so a
+    big generic doc can't win on sheer size. This makes precise matches (e.g. the
+    small TokenizerAPI doc for "tokenizer") beat large catch-all docs (Pricing/Chat).
+    """
 
     def __init__(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
+        self._idf = self._compute_idf(chunks)
+        # distinctiveness threshold for title-boosting (~35th percentile of IDF).
+        # Title matches on terms rarer than this (product names like "seedance",
+        # "seedream", "embedding", "tokenizer") get boosted; common ones ("api",
+        # "model", "search", "request") do not.
+        vals = sorted(self._idf.values())
+        self._idf_hi = vals[int(len(vals) * 0.35)] if vals else 1.0
+
+    @staticmethod
+    def _compute_idf(chunks: list[Chunk]) -> dict[str, float]:
+        n = len(chunks) or 1
+        df: dict[str, int] = {}
+        for c in chunks:
+            for t in c._tokens:
+                df[t] = df.get(t, 0) + 1
+        # smoothed idf; common terms → ~0, rare terms → high
+        return {t: math.log((n + 1) / (d + 1)) + 1.0 for t, d in df.items()}
 
     def __len__(self) -> int:
         return len(self.chunks)
@@ -129,11 +170,22 @@ class KnowledgeBase:
             return []
         scored = []
         for c in self.chunks:
-            overlap = len(q & c._tokens)
-            if overlap:
-                # light length-normalization so short precise chunks aren't buried
-                scored.append((overlap / (1 + len(c._tokens) ** 0.5), overlap, c))
-        scored.sort(key=lambda t: (t[1], t[0]), reverse=True)
+            matched = q & c._tokens
+            title_match = q & c._title_tokens
+            if not matched and not title_match:
+                continue
+            # sum IDF of matched body terms; normalize by sqrt(chunk size) so big
+            # chunks don't dominate purely by having more tokens
+            idf_sum = sum(self._idf.get(t, 1.0) for t in matched)
+            body_score = idf_sum / (1 + len(c._tokens) ** 0.5)
+            # strong boost when a DISTINCTIVE query term hits the doc NAME / section
+            # heading — the surest topic signal (e.g. "tokenizer" → TokenizerAPI doc).
+            # Gate on IDF so generic title words ("api", "models", "search") don't hijack.
+            title_score = 3.0 * sum(
+                self._idf.get(t, 1.0) for t in title_match if self._idf.get(t, 1.0) >= self._idf_hi
+            )
+            scored.append((body_score + title_score, len(matched | title_match), c))
+        scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
         return [c for _, _, c in scored[:k]]
 
 
