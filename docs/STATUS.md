@@ -298,7 +298,14 @@ pluggable `OAuthProvider` — `GoogleProvider` (live OIDC) + `MockProvider` (off
 (degrades to open dev mode if unset). +16 tests (288). Verified REAL .env wires google provider (correct
 endpoint/scope/redirect/client-id); live "click Sign in with Google" verification is the user's final step.
 Decisions: anyone-with-Google can sign in (External); one user = one tenant. User owns aprntc.com Workspace.
-**Next (B4 part 2):** frontend login screen + auth-aware shell.
+**B4 part 2 — frontend ✅ DONE (2026-06-14):** `screens/Login.tsx` (full-screen "Sign in with Google"
+gate) + `App.tsx` gates the whole dashboard on `/api/auth/me` when auth is enabled; sidebar shows the
+signed-in user (name/avatar/tenant) + Sign out. `api.ts`: authConfig/me/logout. Build clean (45 modules).
+**Verified live in-browser:** login gate renders (screenshot), /api/auth/login 307-redirects to the REAL
+Google consent screen (correct client_id/redirect/scope), zero console errors. Only the actual Google
+click-through is the user's step (needs a real browser session as the test user).
+**This completes the planned roadmap (MVP + A-track + B0–B4).** Remaining are optional follow-ups:
+tenant-scope the non-playbook endpoints, surface A1/A2/A4/A6 in the UI, at-scale Postgres/workers.
 
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive

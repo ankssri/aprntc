@@ -100,6 +100,19 @@ export const api = {
     post<AgentRunResult>("/api/agents/run", { agent_id, task }),
   feedback: (episode_id: string, vote: "up" | "down") =>
     post<{ ok: boolean; fused_reward: number | null }>("/api/feedback", { episode_id, vote }),
+  authConfig: () => get<{ enabled: boolean; provider: string | null }>("/api/auth/config"),
+  me: () => get<AuthMe>("/api/auth/me"),
+  logout: () => post<{ ok: boolean }>("/api/auth/logout"),
+};
+
+export type AuthMe = {
+  authenticated: boolean;
+  auth_enabled: boolean;
+  user_id?: string;
+  tenant_id?: string;
+  email?: string | null;
+  name?: string | null;
+  picture?: string | null;
 };
 
 export type AgentInfo = {

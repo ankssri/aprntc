@@ -1,5 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { useTheme } from "./lib/theme";
+import { useAsync } from "./lib/hooks";
+import { api, AuthMe } from "./lib/api";
 import {
   IconBolt,
   IconBook,
@@ -9,11 +11,13 @@ import {
   IconSun,
   IconTrace,
 } from "./components/icons";
+import { Spinner } from "./components/ui";
 import ReviewScreen from "./screens/Review";
 import LineageScreen from "./screens/Lineage";
 import TrajectoriesScreen from "./screens/Trajectories";
 import LessonsScreen from "./screens/Lessons";
 import TryAgentScreen from "./screens/TryAgent";
+import Login from "./screens/Login";
 
 const NAV = [
   { to: "/try", label: "Try an agent", icon: IconBolt },
@@ -23,7 +27,7 @@ const NAV = [
   { to: "/lessons", label: "Lessons", icon: IconBook },
 ];
 
-function Sidebar() {
+function Sidebar({ me }: { me: AuthMe | null }) {
   const { theme, toggle } = useTheme();
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface px-3 py-5">
@@ -63,14 +67,48 @@ function Sidebar() {
         {theme === "dark" ? <IconSun /> : <IconMoon />}
         {theme === "dark" ? "Light mode" : "Dark mode"}
       </button>
+
+      {me?.authenticated && (
+        <div className="mt-2 border-t border-border pt-3">
+          <div className="flex items-center gap-2 px-2">
+            {me.picture ? (
+              <img src={me.picture} alt="" className="h-7 w-7 rounded-full" />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-2 text-xs">
+                {(me.name || me.email || "?")[0].toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-medium text-fg">{me.name || me.email}</div>
+              <div className="truncate text-[10px] text-faint">{me.tenant_id}</div>
+            </div>
+          </div>
+          <button
+            onClick={async () => { await api.logout(); location.href = "/"; }}
+            className="mt-2 w-full rounded-lg px-3 py-1.5 text-left text-xs text-muted transition hover:bg-surface-2 hover:text-fg"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
 
 export default function App() {
+  const { data: me, loading } = useAsync(() => api.me(), []);
+
+  if (loading) {
+    return <div className="flex h-full items-center justify-center"><Spinner /></div>;
+  }
+  // auth enabled + not signed in → gate the whole app behind Login
+  if (me?.auth_enabled && !me.authenticated) {
+    return <Login />;
+  }
+
   return (
     <div className="flex h-full">
-      <Sidebar />
+      <Sidebar me={me} />
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-8 py-8">
           <Routes>
