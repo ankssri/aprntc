@@ -1,0 +1,15 @@
+# Convenience runner: `docker compose up --build` → http://localhost:8000
+# Provide secrets via a local .env (gitignored); persistent data in a named volume.
+services:
+  aprntc:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env            # ARK_API_KEY, VIKINGDB_AK/SK, model ids (see .env.example)
+    volumes:
+      - aprntc-data:/data
+    restart: unless-stopped
+
+volumes:
+  aprntc-data:

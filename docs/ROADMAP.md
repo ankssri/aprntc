@@ -145,8 +145,14 @@ Real work to run aprntc as a product, but never part of the planning-session fea
   external agent does a one-line `GET .../active` fetch; promotion flips what's served. +12 tests
   (243 total). **Verified live:** register G0 → fetch active returns the rendered prompt over HTTP.
   Still needs auth/multi-tenancy (B2) for per-customer isolation; a tiny client SDK helper is optional.
-- **B1 — Deploy** — containerize the FastAPI backend; serve the built React frontend (static) behind it
-  or a CDN; env/secrets management; a hosted VikingDB/Postgres.
+- **B1 — Deploy** ✅ DONE (2026-06-14). Single-container deploy: multi-stage `Dockerfile` (node builds
+  `web/dist` → python runtime serves API + static UI on :8000, no Node in final image),
+  `docker-compose.yml` (env_file + `/data` volume), `.dockerignore` (no secrets/local data in image),
+  `docs/DEPLOY.md`. App serves the SPA via `_mount_static` (env `APRNTC_STATIC_DIR`; optional so dev/Vite
+  + tests unaffected; `/api/*` never shadowed). +3 tests (260 total). **Verified live:** built frontend
+  served by uvicorn on one port — `/`, `/trajectories` (SPA), `/api/health`, `/assets/*` all 200.
+  (Docker build itself unrun — Docker not installed on this machine; the integration it orchestrates is
+  verified.) Follow-ups: Postgres for scale + multi-worker (B3); TLS at ingress.
 - **B2 — Auth + multi-tenancy** ✅ DONE (2026-06-14). `src/aprntc/tenancy/`:
   `TenantStore` (tenants + API keys stored HASHED, never plaintext; create/issue/revoke/rotate/
   deactivate; authenticate) + `TenantResolver` (API key → tenant → that tenant's ISOLATED storage paths

@@ -276,6 +276,13 @@ isolated registries; when unset, single-tenant/dev mode unchanged. +14 tests (25
 (tenant B can't read tenant A's same-agent_id data). Follow-up: extend tenant scoping to the other
 endpoints (trajectories/lineage/lessons/feedback) + dashboard login (B4). Remaining B: B1 deploy, B3 ops.
 
+## B1 — Deploy ✅ DONE (2026-06-14)
+Single-container: multi-stage Dockerfile (node builds web/dist → python serves API + static UI on :8000),
+docker-compose.yml (.env + /data volume), .dockerignore, docs/DEPLOY.md. `_mount_static` serves the SPA
+(APRNTC_STATIC_DIR; optional → dev/tests unaffected; /api/* never shadowed). +3 tests (260). Verified
+live: uvicorn serves /, /trajectories (SPA), /api/health, /assets/* on one port. Docker build itself
+unrun (Docker not installed here). Remaining B: B3 ops (scheduler/Postgres/observability), B4 UI polish.
+
 ## 📌 DELIVERABLE (user request, 2026-06-13): on Stage 6 completion
 When Stage 6 completes, produce a **Design & Solution document** (committed `.md`) — a comprehensive
 write-up of the built system: architecture, the closed observe→label→distill→evaluate→promote loop,

@@ -440,7 +440,47 @@ def create_app(state: AppState | None = None) -> FastAPI:
         except (KeyError, RuntimeError) as e:
             raise HTTPException(status_code=409, detail=str(e))
 
+    # -- B1: serve the built React frontend (single-container deploy) ----------
+    # Mounted LAST so /api/* routes win. Optional: only if a build dir exists, so
+    # dev (Vite on :5173) and tests are unaffected. Set APRNTC_STATIC_DIR to override.
+    _mount_static(app)
+
     return app
+
+
+def _mount_static(app: FastAPI) -> None:
+    """Serve web/dist as an SPA (index.html fallback) if it's been built."""
+    import os
+
+    env_dir = os.environ.get("APRNTC_STATIC_DIR")
+    if env_dir:
+        # explicit override is authoritative — don't fall back to the repo build
+        candidates = [Path(env_dir)]
+    else:
+        # repo layout: src/aprntc/web/app.py -> ../../../web/dist
+        candidates = [Path(__file__).resolve().parents[3] / "web" / "dist"]
+
+    dist = next((d for d in candidates if d.is_dir() and (d / "index.html").exists()), None)
+    if dist is None:
+        return  # no build → API-only (dev/tests). Not an error.
+
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    # hashed assets under /assets
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets)), name="assets")
+
+    @app.get("/{full_path:path}")
+    def spa(full_path: str):
+        # never shadow the API; let unknown /api/* 404 as JSON
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="not found")
+        candidate = dist / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(dist / "index.html"))  # SPA client-side routing
 
 
 def _api_key(request: "Request") -> str | None:

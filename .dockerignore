@@ -1,0 +1,29 @@
+# keep the build context small + never ship secrets/local data
+.git/
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+web/node_modules/
+web/dist/
+*.tsbuildinfo
+
+# secrets + local runtime artifacts (never in the image)
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite*
+tenants.json
+playbooks.json
+lineage*.json
+review_bundle.json
+tenant_data/
+fleet/
+logs/
+
+# docs/tests not needed at runtime
+docs/
+tests/
