@@ -298,6 +298,103 @@ with two halves:</p>
 prompt text, not the code); if they don’t, aprntc infers an approximate G0 from the system prompt the tap
 observed.</p>
 
+<h3>Tap boundaries — which collector, which scenario</h3>
+<p>The inbound tap isn’t one integration; it’s a set of <strong>collectors at stable protocol boundaries</strong>.
+You attach at whichever boundary your agent already exposes — no framework lock-in. Each collector normalizes
+into the <em>same</em> canonical Trajectory, and fidelity degrades gracefully by how the target was built: an
+agent we own gives full tool tracking; a closed-source agent behind the proxy still gives us model traffic.</p>
+
+<div class="fig">
+<svg viewBox="0 0 720 430" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .hd{font-size:10px;font-weight:600;fill:#74747f;letter-spacing:.04em}
+    .bd{font-size:11.5px;font-weight:600} .sub{font-size:9px} .sc{font-size:9.5px;fill:#c8c8d2}
+    .scd{font-size:9px;fill:#8a8a95} .fl{font-size:10px;font-weight:700} .flc{font-size:8.5px}
+    .mono{font-family:var(--mono);font-size:9px}
+  </style>
+  <defs><marker id="a4" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto"><path d="M0 0L6 3L0 6Z" fill="#74747f"/></marker></defs>
+  <text x="16" y="20" font-size="11" font-weight="600" fill="#a9a9b6">Intercept at stable PROTOCOL boundaries — not framework internals.</text>
+  <line x1="16" y1="30" x2="704" y2="30" stroke="#2a2a34"/>
+  <text x="16"  y="50" class="hd">BOUNDARY</text>
+  <text x="150" y="50" class="hd">aprntc COLLECTOR</text>
+  <text x="296" y="50" class="hd">WHEN IT APPLIES</text>
+  <text x="582" y="50" class="hd">TOOL-CALL FIDELITY</text>
+  <g>
+    <rect x="16" y="60" width="676" height="56" rx="8" fill="#1b1b22"/>
+    <rect x="24" y="68" width="120" height="40" rx="7" fill="#21212a" stroke="#3a3a44"/>
+    <text x="84" y="86" text-anchor="middle" class="bd" fill="#f4f4f6">Model</text>
+    <text x="84" y="100" text-anchor="middle" class="sub" fill="#8a8a95">LLM HTTP API</text>
+    <line x1="146" y1="88" x2="158" y2="88" stroke="#74747f" stroke-width="1.3" marker-end="url(#a4)"/>
+    <rect x="160" y="68" width="128" height="40" rx="7" fill="#211d3a" stroke="#534AB7"/>
+    <text x="224" y="92" text-anchor="middle" class="bd" fill="#afa9ec">SDK wrapper</text>
+    <text x="296" y="85" class="sc">Agents whose code you own (our two demos).</text>
+    <text x="296" y="99" class="scd"><tspan class="mono" fill="#7f77dd">Tap.wrap(client)</tspan> around the model client.</text>
+    <circle cx="592" cy="84" r="4" fill="#1d9e75"/><circle cx="606" cy="84" r="4" fill="#1d9e75"/><circle cx="620" cy="84" r="4" fill="#1d9e75"/>
+    <text x="632" y="88" class="fl" fill="#5dcaa5">FULL</text>
+    <text x="592" y="104" class="flc" fill="#8a8a95">name + args + result + timing</text>
+  </g>
+  <g>
+    <rect x="24" y="124" width="120" height="40" rx="7" fill="#21212a" stroke="#3a3a44"/>
+    <text x="84" y="142" text-anchor="middle" class="bd" fill="#f4f4f6">Model</text>
+    <text x="84" y="156" text-anchor="middle" class="sub" fill="#8a8a95">egress proxy</text>
+    <line x1="146" y1="144" x2="158" y2="144" stroke="#74747f" stroke-width="1.3" marker-end="url(#a4)"/>
+    <rect x="160" y="124" width="128" height="40" rx="7" fill="#211d3a" stroke="#534AB7"/>
+    <text x="224" y="148" text-anchor="middle" class="bd" fill="#afa9ec">LiteLLM proxy</text>
+    <text x="296" y="141" class="sc">Any agent, incl. closed-source —</text>
+    <text x="296" y="155" class="scd">it points its <tspan class="mono" fill="#7f77dd">base_url</tspan> at our proxy.</text>
+    <circle cx="592" cy="140" r="4" fill="#ba7517"/><circle cx="606" cy="140" r="4" fill="#ba7517"/><circle cx="620" cy="140" r="4" fill="none" stroke="#5a5a55"/>
+    <text x="632" y="144" class="fl" fill="#d99a3a">PARTIAL</text>
+    <text x="592" y="160" class="flc" fill="#8a8a95">inferred from the call loop</text>
+  </g>
+  <g>
+    <rect x="16" y="172" width="676" height="56" rx="8" fill="#1b1b22"/>
+    <rect x="24" y="180" width="120" height="40" rx="7" fill="#21212a" stroke="#3a3a44"/>
+    <text x="84" y="198" text-anchor="middle" class="bd" fill="#f4f4f6">Tool</text>
+    <text x="84" y="212" text-anchor="middle" class="sub" fill="#8a8a95">MCP (JSON-RPC)</text>
+    <line x1="146" y1="200" x2="158" y2="200" stroke="#74747f" stroke-width="1.3" marker-end="url(#a4)"/>
+    <rect x="160" y="180" width="128" height="40" rx="7" fill="#211d3a" stroke="#534AB7"/>
+    <text x="224" y="198" text-anchor="middle" class="bd" fill="#afa9ec">MCP gateway</text>
+    <text x="224" y="211" text-anchor="middle" class="sub" fill="#8a8a95">→ OTel</text>
+    <text x="296" y="197" class="sc">Agents whose tools are MCP servers.</text>
+    <text x="296" y="211" class="scd">Direct tool name + args + result.</text>
+    <circle cx="592" cy="196" r="4" fill="#1d9e75"/><circle cx="606" cy="196" r="4" fill="#1d9e75"/><circle cx="620" cy="196" r="4" fill="#1d9e75"/>
+    <text x="632" y="200" class="fl" fill="#5dcaa5">FULL*</text>
+    <text x="592" y="216" class="flc" fill="#8a8a95">*MCP tools only (misses hand-rolled)</text>
+  </g>
+  <g>
+    <rect x="24" y="236" width="120" height="40" rx="7" fill="#21212a" stroke="#3a3a44"/>
+    <text x="84" y="254" text-anchor="middle" class="bd" fill="#f4f4f6">Telemetry</text>
+    <text x="84" y="268" text-anchor="middle" class="sub" fill="#8a8a95">OTel spans</text>
+    <line x1="146" y1="256" x2="158" y2="256" stroke="#74747f" stroke-width="1.3" marker-end="url(#a4)"/>
+    <rect x="160" y="236" width="128" height="40" rx="7" fill="#211d3a" stroke="#534AB7"/>
+    <text x="224" y="260" text-anchor="middle" class="bd" fill="#afa9ec">OTel ingester</text>
+    <text x="296" y="253" class="sc">OTel-instrumented frameworks</text>
+    <text x="296" y="267" class="scd">(LangChain · LlamaIndex · CrewAI).</text>
+    <circle cx="592" cy="252" r="4" fill="#ba7517"/><circle cx="606" cy="252" r="4" fill="#ba7517"/><circle cx="620" cy="252" r="4" fill="none" stroke="#5a5a55"/>
+    <text x="632" y="256" class="fl" fill="#d99a3a">CONDITIONAL</text>
+    <text x="592" y="272" class="flc" fill="#8a8a95">if it emits tool spans</text>
+  </g>
+  <g opacity="0.66">
+    <rect x="16" y="284" width="676" height="56" rx="8" fill="#1b1b22"/>
+    <rect x="24" y="292" width="120" height="40" rx="7" fill="#1a1a20" stroke="#34343c" stroke-dasharray="3 2"/>
+    <text x="84" y="310" text-anchor="middle" class="bd" fill="#c8c8d2">Agent</text>
+    <text x="84" y="324" text-anchor="middle" class="sub" fill="#8a8a95">A2A protocol</text>
+    <line x1="146" y1="312" x2="158" y2="312" stroke="#5a5a64" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#a4)"/>
+    <rect x="160" y="292" width="128" height="40" rx="7" fill="#1a1a20" stroke="#34343c" stroke-dasharray="3 2"/>
+    <text x="224" y="316" text-anchor="middle" class="bd" fill="#9a9aa6">A2A interceptor</text>
+    <text x="296" y="309" class="sc">Agents exposed over the A2A protocol.</text>
+    <text x="296" y="323" class="scd">Coarsest: task / artifact granularity.</text>
+    <circle cx="592" cy="308" r="4" fill="none" stroke="#5a5a64"/><circle cx="606" cy="308" r="4" fill="none" stroke="#5a5a64"/><circle cx="620" cy="308" r="4" fill="none" stroke="#5a5a64"/>
+    <text x="632" y="312" class="fl" fill="#8a8a95">DEFERRED</text>
+    <text x="592" y="328" class="flc" fill="#74747f">parked until after v1</text>
+  </g>
+  <line x1="16" y1="356" x2="704" y2="356" stroke="#2a2a34"/>
+  <text x="16" y="376" class="sc" fill="#a9a9b6">Every collector normalizes into <tspan font-weight="700" fill="#afa9ec">one canonical Trajectory</tspan>; the tap is <tspan font-weight="700" fill="#5dcaa5">async + fail-open</tspan> — never in the user’s response path.</text>
+  <text x="16" y="394" class="scd" fill="#8a8a95">Fidelity degrades gracefully by how the target was built:  SDK wrapper  →  MCP  →  OTel  →  egress proxy.</text>
+</svg>
+<div class="figcap">Figure 4 — The four tap boundaries, the collector at each, the scenario it fits, and how complete its tool-call capture is. A2A is the deferred fifth boundary.</div>
+</div>
+
 <!-- ============ 5. COMPONENTS ============ -->
 <h2 id="components"><span class="n">5</span>Component design</h2>
 <table>
