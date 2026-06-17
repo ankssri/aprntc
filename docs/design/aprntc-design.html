@@ -292,7 +292,7 @@ the at-a-glance diagram in <a href="#concept">§1</a>; this section details how 
 with two halves:</p>
 <div class="grid">
   <div class="card"><strong>Inbound (observe) — built</strong><br/>
-    The agent’s traffic flows <em>into</em> aprntc via a tap (egress proxy / OTel / MCP). Read-only.
+    The agent’s traffic flows <em>into</em> aprntc via a tap (egress proxy / OTel / MCP / A2A). Read-only.
     This is how aprntc sees behavior without owning the code.</div>
   <div class="card"><strong>Outbound (control) — built</strong><br/>
     The agent <em>pulls</em> its active playbook from aprntc’s config-fetch API
@@ -379,25 +379,25 @@ agent we own gives full tool tracking; a closed-source agent behind the proxy st
     <text x="632" y="256" class="fl" fill="#d99a3a">CONDITIONAL</text>
     <text x="592" y="272" class="flc" fill="#8a8a95">if it emits tool spans</text>
   </g>
-  <g opacity="0.66">
+  <g>
     <rect x="16" y="284" width="676" height="56" rx="8" fill="#1b1b22"/>
-    <rect x="24" y="292" width="120" height="40" rx="7" fill="#1a1a20" stroke="#34343c" stroke-dasharray="3 2"/>
-    <text x="84" y="310" text-anchor="middle" class="bd" fill="#c8c8d2">Agent</text>
+    <rect x="24" y="292" width="120" height="40" rx="7" fill="#21212a" stroke="#3a3a44"/>
+    <text x="84" y="310" text-anchor="middle" class="bd" fill="#f4f4f6">Agent</text>
     <text x="84" y="324" text-anchor="middle" class="sub" fill="#8a8a95">A2A protocol</text>
-    <line x1="146" y1="312" x2="158" y2="312" stroke="#5a5a64" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#a4)"/>
-    <rect x="160" y="292" width="128" height="40" rx="7" fill="#1a1a20" stroke="#34343c" stroke-dasharray="3 2"/>
-    <text x="224" y="316" text-anchor="middle" class="bd" fill="#9a9aa6">A2A interceptor</text>
-    <text x="296" y="309" class="sc">Agents exposed over the A2A protocol.</text>
-    <text x="296" y="323" class="scd">Coarsest: task / artifact granularity.</text>
-    <circle cx="592" cy="308" r="4" fill="none" stroke="#5a5a64"/><circle cx="606" cy="308" r="4" fill="none" stroke="#5a5a64"/><circle cx="620" cy="308" r="4" fill="none" stroke="#5a5a64"/>
-    <text x="632" y="312" class="fl" fill="#8a8a95">DEFERRED</text>
-    <text x="592" y="328" class="flc" fill="#74747f">parked until after v1</text>
+    <line x1="146" y1="312" x2="158" y2="312" stroke="#74747f" stroke-width="1.3" marker-end="url(#a4)"/>
+    <rect x="160" y="292" width="128" height="40" rx="7" fill="#211d3a" stroke="#534AB7"/>
+    <text x="224" y="316" text-anchor="middle" class="bd" fill="#afa9ec">A2A interceptor</text>
+    <text x="296" y="309" class="sc">Multi-agent systems over the A2A protocol.</text>
+    <text x="296" y="323" class="scd">Task / artifact-grained capture.</text>
+    <circle cx="592" cy="308" r="4" fill="#ba7517"/><circle cx="606" cy="308" r="4" fill="none" stroke="#5a5a55"/><circle cx="620" cy="308" r="4" fill="none" stroke="#5a5a55"/>
+    <text x="632" y="312" class="fl" fill="#d99a3a">COARSE</text>
+    <text x="592" y="328" class="flc" fill="#8a8a95">task/artifact granularity</text>
   </g>
   <line x1="16" y1="356" x2="704" y2="356" stroke="#2a2a34"/>
   <text x="16" y="376" class="sc" fill="#a9a9b6">Every collector normalizes into <tspan font-weight="700" fill="#afa9ec">one canonical Trajectory</tspan>; the tap is <tspan font-weight="700" fill="#5dcaa5">async + fail-open</tspan> — never in the user’s response path.</text>
-  <text x="16" y="394" class="scd" fill="#8a8a95">Fidelity degrades gracefully by how the target was built:  SDK wrapper  →  MCP  →  OTel  →  egress proxy.</text>
+  <text x="16" y="394" class="scd" fill="#8a8a95">Fidelity degrades gracefully by how the target was built:  SDK wrapper  →  MCP  →  OTel  →  egress proxy  →  A2A.</text>
 </svg>
-<div class="figcap">Figure 3 — The four tap boundaries, the collector at each, the scenario it fits, and how complete its tool-call capture is. A2A is the deferred fifth boundary.</div>
+<div class="figcap">Figure 3 — The four tap boundaries and five collectors, the scenario each fits, and how complete its tool-call capture is. All four boundaries — including the agent-to-agent (A2A) layer — are instrumented.</div>
 </div>
 
 <!-- ============ 5. COMPONENTS ============ -->
@@ -405,7 +405,7 @@ agent we own gives full tool tracking; a closed-source agent behind the proxy st
 <table>
   <tr><th>Component</th><th>Module</th><th>Responsibility</th></tr>
   <tr><td>LLMProvider seam</td><td><code>providers/</code></td><td>one <code>complete()</code> contract; model-agnostic (Seed/DeepSeek/OpenAI/Anthropic/Gemini)</td></tr>
-  <tr><td>AgentTap + collectors</td><td><code>tap/</code></td><td>SDK wrapper (full fidelity) · LiteLLM egress proxy · OTel ingester · MCP gateway — all normalize into one Trajectory; async + fail-open</td></tr>
+  <tr><td>AgentTap + collectors</td><td><code>tap/</code></td><td>SDK wrapper (full fidelity) · LiteLLM egress proxy · OTel ingester · MCP gateway · A2A interceptor — all normalize into one Trajectory; async + fail-open</td></tr>
   <tr><td>Trajectory schema + store</td><td><code>trajectory/</code></td><td>canonical Episode/Turn/Step; SQLite store; PII scrub at ingest; fused reward; GDPR delete + TTL</td></tr>
   <tr><td>Evaluation / labeling</td><td><code>eval/</code></td><td>recused pairwise judge · deterministic outcome scorers (the anchor) · health metrics · <strong>learned fusion weights</strong></td></tr>
   <tr><td>Experience memory</td><td><code>memory/</code></td><td>VikingDB REST adapter (own SigV4 signer) · filtered hybrid search + MMR · curated, generation-versioned lessons</td></tr>

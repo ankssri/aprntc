@@ -16,13 +16,17 @@ with pluggable **collectors**, all normalizing into one canonical `Trajectory` s
 - **MCP interceptor** — **IBM ContextForge** (Apache-2.0) MCP gateway; clean tool tracking for
   MCP-based agents. Exports OTel → reuses the OTel ingester path (no bespoke MCP parser). IN.
 - **OTel ingester** — OpenTelemetry Collector + OpenLLMetry/OpenInference; instrumented frameworks. IN.
-- **A2A interceptor** — **DEFERRED until after v1** (coarsest data, lowest adoption).
+- **A2A interceptor** — **IN.** Agent boundary: captures tasks/artifacts from an A2A server in front of
+  a multi-agent system (`a2a_ingest.py`). Coarsest data (task/artifact granularity, no inner tool calls),
+  but it completes the four-boundary set. Originally deferred post-v1; built as a pure normalizer
+  (`SourceFidelity.COARSE`) with no hard A2A dependency.
 
 Don't hand-build what a mature OSS project already does — **wrap it + feed our normalizer.**
 
 ## Rationale
 - Tool tracking is must-have; fidelity degrades gracefully: SDK wrapper (full) → MCP (full if MCP-based)
-  → OTel (if it emits tool spans) → egress proxy (partial/inferred from the function-call loop).
+  → OTel (if it emits tool spans) → egress proxy (partial/inferred from the function-call loop)
+  → A2A (coarse; task/artifact only, inner tool calls invisible to the caller).
 - MCP gateways already export OTel → MCP + OTel collectors **converge on one ingestion path**.
 
 ## Alternatives rejected

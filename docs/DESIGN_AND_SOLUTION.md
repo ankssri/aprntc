@@ -76,10 +76,11 @@ protocol boundaries, not framework internals** (ADR 0004). Collectors:
 - **SDK wrapper** (built) — wraps the model client; full-fidelity (messages, reasoning, tool_calls,
   tokens, timing) for code we own. The tap is **async + fail-open**: a sink/recording error never
   reaches the parent agent.
-- **LiteLLM egress proxy / OTel ingester / MCP (ContextForge)** — designed; plug in behind the same
-  `AgentTap` core for closed-source / instrumented / MCP-based agents. A2A deferred post-v1.
+- **LiteLLM egress proxy / OTel ingester / MCP (ContextForge) / A2A interceptor** — plug in behind the
+  same `AgentTap` core for closed-source / instrumented / MCP-based / multi-agent (A2A) agents. All four
+  protocol boundaries are now instrumented.
 - Tool-tracking fidelity degrades gracefully: wrapper (full) → MCP (full) → OTel (if emitted) → proxy
-  (inferred). Cross-collector correlation is best-effort by design (ADR 0005).
+  (inferred) → A2A (coarse; task/artifact only). Cross-collector correlation is best-effort by design (ADR 0005).
 
 ### 4.3 Trajectory schema + Store — `trajectory/`
 The one canonical record every collector normalizes into (ADR 0007):

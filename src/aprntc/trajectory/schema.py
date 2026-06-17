@@ -46,6 +46,7 @@ class Collector(_StrEnum):
     EGRESS_PROXY = "egress_proxy"
     OTEL = "otel"
     MCP = "mcp"
+    A2A = "a2a"
 
 
 class ContentType(_StrEnum):
@@ -68,6 +69,7 @@ class SourceFidelity(_StrEnum):
     FULL = "full"          # direct capture (SDK wrapper)
     PARTIAL = "partial"    # some fields missing (e.g. OTel without tool args)
     INFERRED = "inferred"  # reconstructed (e.g. proxy reading the function-call loop)
+    COARSE = "coarse"      # task/artifact granularity only (e.g. A2A agent boundary)
 
 
 class PiiStatus(_StrEnum):

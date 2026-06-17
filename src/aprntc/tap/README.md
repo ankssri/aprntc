@@ -10,6 +10,7 @@ normalize into an `Episode` → a sink (e.g. `TrajectoryStore.put_episode`).
 | Egress proxy | `egress_proxy.py` | closed-source agents | inferred (model traffic) | LiteLLM (`[proxy]`) |
 | OTel ingester | `otel_ingest.py` | OTel-instrumented frameworks | partial | OTel Collector (`[otel]`) |
 | MCP interceptor | `mcp_ingest.py` | MCP-tool agents | full (tools) | MCP gateway, e.g. ContextForge |
+| A2A interceptor | `a2a_ingest.py` | multi-agent systems over A2A | coarse (task/artifact) | A2A server/SDK (`[a2a]`) |
 
 Design: each collector is a **pure normalizer** (`normalize.py` is shared) — the
 external service only delivers raw dicts, so the mapping logic is fully unit-tested
@@ -25,6 +26,9 @@ if the extra isn't installed.
   OpenLLMetry / OpenInference (free, OSS).
 - **MCP:** run an OSS MCP gateway (ContextForge) between agent and MCP servers;
   feed its tool-call logs to `mcp_records_to_episode(...)` → sink.
+- **A2A:** sit an A2A server/proxy in front of the agents; feed each completed
+  task to `a2a_task_to_episode(task)` → sink. Coarsest tap — task/artifact
+  granularity; the remote agent's internal tool calls are not visible to the caller.
 
 Cross-collector correlation (model stream + tool stream → one trajectory) is
 **best-effort** by design (ADR 0005) — aprntc learns from response *quality*, not

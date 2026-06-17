@@ -6,6 +6,8 @@ services — LiteLLM, OTel Collector, MCP gateway — only deliver the raw dicts
 import pytest
 
 from aprntc.tap import (
+    a2a_task_to_episode,
+    a2a_tasks_to_episodes,
     handle_event,
     mcp_record_to_step,
     mcp_records_to_episode,
@@ -190,3 +192,77 @@ def test_mcp_records_to_episode_bundles_tool_steps():
 
 def test_mcp_records_to_episode_empty_is_none():
     assert mcp_records_to_episode([{"foo": "bar"}], task_input="x") is None
+
+
+# ─── A2A interceptor (agent boundary) ────────────────────────────────────────
+
+def test_a2a_task_full_history_and_artifacts():
+    task = {
+        "id": "task-1",
+        "contextId": "ctx-9",
+        "agentName": "billing-agent",
+        "status": {"state": "completed"},
+        "history": [
+            {"role": "user", "parts": [{"kind": "text", "text": "Refund order 42?"}]},
+            {"role": "agent", "parts": [{"kind": "text", "text": "Working on it."}]},
+        ],
+        "artifacts": [
+            {"name": "result", "parts": [{"kind": "text", "text": "Refunded $20 to order 42."}]}
+        ],
+    }
+    ep = a2a_task_to_episode(task)
+    assert ep is not None and ep.collector is Collector.A2A
+    assert ep.task_input == "Refund order 42?"
+    assert ep.final_output == "result: Refunded $20 to order 42."
+    assert ep.trace_id == "task-1"
+    step = ep.turns[0].steps[0]
+    assert step.type is StepType.HANDOFF
+    assert step.tool_name == "billing-agent"
+    assert step.source_fidelity is SourceFidelity.COARSE  # coarsest: task/artifact only
+    assert step.error is None
+
+
+def test_a2a_artifacts_without_history():
+    task = {"id": "t2", "artifacts": [{"parts": [{"kind": "text", "text": "done"}]}]}
+    ep = a2a_task_to_episode(task)
+    assert ep is not None and ep.final_output == "done"
+    assert ep.task_input == "(a2a task)"  # no input message present
+
+
+def test_a2a_top_level_message_input():
+    task = {"id": "t3", "message": {"parts": [{"text": "hello there"}]},
+            "artifacts": [{"parts": [{"text": "hi"}]}]}
+    ep = a2a_task_to_episode(task)
+    assert ep.task_input == "hello there" and ep.final_output == "hi"
+
+
+def test_a2a_failed_task_records_error():
+    task = {
+        "id": "t4",
+        "history": [{"role": "user", "parts": [{"text": "do the thing"}]}],
+        "status": {"state": "failed", "message": {"parts": [{"text": "upstream agent timed out"}]}},
+    }
+    ep = a2a_task_to_episode(task)
+    assert ep is not None
+    assert ep.turns[0].steps[0].error == "upstream agent timed out"
+
+
+def test_a2a_file_part_is_referenced_not_inlined():
+    task = {"id": "t5", "message": {"parts": [{"text": "see attachment"}]},
+            "artifacts": [{"parts": [{"kind": "file", "file": {"name": "report.pdf"}}]}]}
+    ep = a2a_task_to_episode(task)
+    assert ep.final_output == "[file: report.pdf]"
+
+
+def test_a2a_empty_task_is_none():
+    assert a2a_task_to_episode({"id": "t6", "status": {"state": "submitted"}}) is None
+    assert a2a_task_to_episode("not a dict") is None
+
+
+def test_a2a_batch_filters_empty():
+    tasks = [
+        {"id": "a", "message": {"parts": [{"text": "q"}]}, "artifacts": [{"parts": [{"text": "r"}]}]},
+        {"id": "b", "status": {"state": "submitted"}},  # nothing learnable → skipped
+    ]
+    eps = a2a_tasks_to_episodes(tasks)
+    assert len(eps) == 1 and eps[0].collector is Collector.A2A

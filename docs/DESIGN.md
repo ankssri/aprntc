@@ -46,9 +46,9 @@ core interfaces:  LLMProvider · AgentTap · TrajectoryStore · Evaluator ·
 - **Egress proxy = LiteLLM** (MIT) via CustomLogger — model traffic, incl. closed agents.
 - **MCP interceptor = IBM ContextForge** (Apache-2.0) — tool tracking; exports OTel → reuses OTel path.
 - **OTel ingester** — OpenTelemetry Collector + OpenLLMetry/OpenInference — instrumented frameworks.
-- **A2A** — deferred post-v1.
+- **A2A interceptor** — agent boundary; captures tasks/artifacts from an A2A server (multi-agent systems).
 
-Tool tracking is must-have; fidelity degrades gracefully (wrapper → MCP → OTel → proxy). Cross-collector
+Tool tracking is must-have; fidelity degrades gracefully (wrapper → MCP → OTel → proxy → A2A). Cross-collector
 correlation is best-effort (ADR 0005). Tap is async + fail-open.
 
 ### Pipeline shape
@@ -122,7 +122,8 @@ compares each pair. Passes only when ALL hold:
 MVP eval uses **offline replay** on recorded trajectories (not live traffic).
 
 ## 8. Deferred to v1+ (with why)
-- **A2A collector** — coarsest data, lowest adoption; 4 MVP collectors cover ~all agents.
+- **A2A collector** — ~~coarsest data, lowest adoption; 4 MVP collectors cover ~all agents.~~
+  **Now built** (`tap/a2a_ingest.py`): agent boundary, task/artifact granularity, `SourceFidelity.COARSE`.
 - **Online shadow / A-B canary** — needs live traffic + ~2× cost; MVP uses offline replay.
 - **Learned fusion weights** — needs accumulated data; MVP uses fixed priority outcome>explicit>judge.
 - **Fine-tuning (PEFT)** — Phase-2; needs training infra, hard to reverse; never replaces memory+playbook.
